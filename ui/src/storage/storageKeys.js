@@ -1,0 +1,17 @@
+export const STORAGE_KEYS = {
+  customers: '@khayati/customers',
+  salesCustomers: '@khayati/salesCustomers',
+  orders: '@khayati/orders',
+  sales: '@khayati/sales',
+  fabrics: '@khayati/fabrics',
+  machinery: '@khayati/machinery',
+  stockLogs: '@khayati/stockLogs',
+  expenses: '@khayati/expenses',
+  income: '@khayati/income',
+  transactions: '@khayati/transactions',
+  settings: '@khayati/settings',
+  orderTypes: '@khayati/orderTypes',
+  employees: '@khayati/employees',
+  customerMeasurementFields: '@khayati/customerMeasurementFields',
+  initialized: '@khayati/initialized',
+};
