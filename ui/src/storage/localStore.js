@@ -5,22 +5,24 @@
 
 import AsyncStorage from './browserStorage.js';
 import { STORAGE_KEYS } from './storageKeys.js';
-import {
-  MOCK_CUSTOMERS,
-  MOCK_ORDERS,
-  MOCK_SALES,
-  MOCK_FABRICS,
-  MOCK_MACHINERY,
-  MOCK_STOCK_LOGS,
-  MOCK_EXPENSES,
-  MOCK_INCOME,
-  MOCK_TRANSACTIONS,
-  MOCK_SETTINGS,
-  MOCK_ORDER_TYPES,
-  MOCK_EMPLOYEES,
-  MOCK_CUSTOMER_MEASUREMENT_FIELDS,
-  MOCK_SALES_CUSTOMERS,
-} from './mockData.js';
+import { DEFAULT_APP_SETTINGS, collectDemoRecordIds } from './mockData.js';
+import { applyOrderCustomerCashPayment } from '../utils/orderCustomerBalance.js';
+
+const COLLECTION_KEYS = [
+  STORAGE_KEYS.customers,
+  STORAGE_KEYS.salesCustomers,
+  STORAGE_KEYS.orders,
+  STORAGE_KEYS.sales,
+  STORAGE_KEYS.fabrics,
+  STORAGE_KEYS.machinery,
+  STORAGE_KEYS.stockLogs,
+  STORAGE_KEYS.expenses,
+  STORAGE_KEYS.income,
+  STORAGE_KEYS.transactions,
+  STORAGE_KEYS.orderTypes,
+  STORAGE_KEYS.employees,
+  STORAGE_KEYS.customerMeasurementFields,
+];
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -73,30 +75,40 @@ async function writeCollection(key, data) {
 
 let initPromise = null;
 
+async function purgeDemoRecordsOnce() {
+  if ((await AsyncStorage.getItem(STORAGE_KEYS.demoPurged)) === 'true') return;
+
+  const demoIds = collectDemoRecordIds();
+  await Promise.all(
+    COLLECTION_KEYS.map(async (key) => {
+      const items = await readCollection(key, []);
+      const kept = items.filter((item) => item?.id && !demoIds.has(item.id));
+      if (kept.length !== items.length) {
+        await writeCollection(key, kept);
+      }
+    }),
+  );
+
+  await AsyncStorage.setItem(STORAGE_KEYS.demoPurged, 'true');
+}
+
+async function seedEmptyStoreIfNeeded() {
+  const initialized = await AsyncStorage.getItem(STORAGE_KEYS.initialized);
+  if (initialized === 'true') return;
+
+  await Promise.all([
+    ...COLLECTION_KEYS.map((key) => writeCollection(key, [])),
+    AsyncStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({ ...DEFAULT_APP_SETTINGS })),
+    AsyncStorage.setItem(STORAGE_KEYS.initialized, 'true'),
+  ]);
+}
+
 export async function initializeStore() {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const initialized = await AsyncStorage.getItem(STORAGE_KEYS.initialized);
-    if (initialized === 'true') return;
-
-    await Promise.all([
-      writeCollection(STORAGE_KEYS.customers, MOCK_CUSTOMERS),
-      writeCollection(STORAGE_KEYS.salesCustomers, MOCK_SALES_CUSTOMERS),
-      writeCollection(STORAGE_KEYS.orders, MOCK_ORDERS),
-      writeCollection(STORAGE_KEYS.sales, MOCK_SALES),
-      writeCollection(STORAGE_KEYS.fabrics, MOCK_FABRICS),
-      writeCollection(STORAGE_KEYS.machinery, MOCK_MACHINERY),
-      writeCollection(STORAGE_KEYS.stockLogs, MOCK_STOCK_LOGS),
-      writeCollection(STORAGE_KEYS.expenses, MOCK_EXPENSES),
-      writeCollection(STORAGE_KEYS.income, MOCK_INCOME),
-      writeCollection(STORAGE_KEYS.transactions, MOCK_TRANSACTIONS),
-      writeCollection(STORAGE_KEYS.orderTypes, MOCK_ORDER_TYPES),
-      writeCollection(STORAGE_KEYS.employees, MOCK_EMPLOYEES),
-      writeCollection(STORAGE_KEYS.customerMeasurementFields, MOCK_CUSTOMER_MEASUREMENT_FIELDS),
-      AsyncStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(MOCK_SETTINGS)),
-      AsyncStorage.setItem(STORAGE_KEYS.initialized, 'true'),
-    ]);
+    await purgeDemoRecordsOnce();
+    await seedEmptyStoreIfNeeded();
   })();
 
   return initPromise;
@@ -120,6 +132,7 @@ export async function getCustomers() {
   const customers = await readCollection(STORAGE_KEYS.customers);
   return customers.map((c) => ({
     ...c,
+    creditBalance: Number(c.creditBalance || 0),
     measurements: parseMeasurements(c.measurements),
   }));
 }
@@ -144,6 +157,7 @@ export async function createCustomer({ name, phone, measurements }) {
     tokenNumber,
     name,
     phone,
+    creditBalance: 0,
     addedDate: now,
     measurements: parseMeasurements(measurements),
     createdAt: now,
@@ -155,6 +169,22 @@ export async function createCustomer({ name, phone, measurements }) {
     measurements: c.measurements,
   })));
   return customer;
+}
+
+export async function adjustCustomerCreditBalance(id, delta) {
+  await initializeStore();
+  const customers = await readCollection(STORAGE_KEYS.customers);
+  const index = customers.findIndex((c) => c.id === id);
+  if (index === -1) throw new Error('Customer not found');
+  const next = Math.max(0, Number(customers[index].creditBalance || 0) + Number(delta || 0));
+  const updated = {
+    ...customers[index],
+    creditBalance: next,
+    updatedAt: new Date().toISOString(),
+  };
+  customers[index] = updated;
+  await writeCollection(STORAGE_KEYS.customers, customers);
+  return { ...updated, measurements: parseMeasurements(updated.measurements) };
 }
 
 export async function updateCustomer(id, { name, phone, measurements }) {
@@ -190,14 +220,7 @@ export async function getCustomerStats() {
 
 export async function getSalesCustomers() {
   await initializeStore();
-  let list = await readCollection(STORAGE_KEYS.salesCustomers);
-  if (list.length === 0) {
-    const exists = await AsyncStorage.getItem(STORAGE_KEYS.salesCustomers);
-    if (exists === null) {
-      list = [...MOCK_SALES_CUSTOMERS];
-      await writeCollection(STORAGE_KEYS.salesCustomers, list);
-    }
-  }
+  const list = await readCollection(STORAGE_KEYS.salesCustomers);
   return list.map((c) => ({
     ...c,
     creditBalance: Number(c.creditBalance || 0),
@@ -377,15 +400,7 @@ export async function getOrderStats() {
 
 export async function getOrderTypes() {
   await initializeStore();
-  let types = await readCollection(STORAGE_KEYS.orderTypes);
-  if (types.length === 0) {
-    const exists = await AsyncStorage.getItem(STORAGE_KEYS.orderTypes);
-    if (exists === null) {
-      types = [...MOCK_ORDER_TYPES];
-      await writeCollection(STORAGE_KEYS.orderTypes, types);
-    }
-  }
-  return types;
+  return readCollection(STORAGE_KEYS.orderTypes);
 }
 
 export async function createOrderType(data) {
@@ -431,15 +446,7 @@ export async function deleteOrderType(id) {
 
 export async function getEmployees() {
   await initializeStore();
-  let employees = await readCollection(STORAGE_KEYS.employees);
-  if (employees.length === 0) {
-    const exists = await AsyncStorage.getItem(STORAGE_KEYS.employees);
-    if (exists === null) {
-      employees = [...MOCK_EMPLOYEES];
-      await writeCollection(STORAGE_KEYS.employees, employees);
-    }
-  }
-  return employees;
+  return readCollection(STORAGE_KEYS.employees);
 }
 
 export async function createEmployee(data) {
@@ -485,15 +492,7 @@ export async function deleteEmployee(id) {
 
 export async function getCustomerMeasurementFields() {
   await initializeStore();
-  let fields = await readCollection(STORAGE_KEYS.customerMeasurementFields);
-  if (fields.length === 0) {
-    const exists = await AsyncStorage.getItem(STORAGE_KEYS.customerMeasurementFields);
-    if (exists === null) {
-      fields = [...MOCK_CUSTOMER_MEASUREMENT_FIELDS];
-      await writeCollection(STORAGE_KEYS.customerMeasurementFields, fields);
-    }
-  }
-  return fields;
+  return readCollection(STORAGE_KEYS.customerMeasurementFields);
 }
 
 export async function createCustomerMeasurementField(data) {
@@ -999,7 +998,7 @@ export async function recordIncomePayment({
   return { income, transaction };
 }
 
-export async function recordOrderPayment(id, { paidAmount, markDelivered = false }) {
+export async function setOrderPaidAmount(id, { paidAmount, paymentStatus, recordIncome = true }) {
   const orders = await readCollection(STORAGE_KEYS.orders);
   const index = orders.findIndex((o) => o.id === id);
   if (index === -1) throw new Error(`Order not found with id: ${id}`);
@@ -1010,21 +1009,23 @@ export async function recordOrderPayment(id, { paidAmount, markDelivered = false
   const delta = newPaid - previousPaid;
   const total = parseFloat(order.totalAmount || 0);
 
-  let paymentStatus = 'Pending';
-  if (newPaid >= total && total > 0) paymentStatus = 'Paid';
-  else if (newPaid > 0) paymentStatus = 'Partial';
+  let status = paymentStatus;
+  if (!status) {
+    if (newPaid >= total && total > 0) status = 'Paid';
+    else if (newPaid > 0) status = 'Partial';
+    else status = 'Pending';
+  }
 
   const updated = {
     ...order,
     paidAmount: newPaid,
-    paymentStatus,
-    ...(markDelivered ? { status: 'Delivered' } : {}),
+    paymentStatus: status,
     updatedAt: new Date().toISOString(),
   };
   orders[index] = updated;
   await writeCollection(STORAGE_KEYS.orders, orders);
 
-  if (delta > 0) {
+  if (recordIncome && delta > 0) {
     await recordIncomePayment({
       source: 'Order Payment',
       title: `Payment for ${order.tokenNumber} — ${order.customerName}`,
@@ -1032,11 +1033,66 @@ export async function recordOrderPayment(id, { paidAmount, markDelivered = false
       amount: delta,
       referenceId: id,
       referenceType: 'order',
-      status: markDelivered ? 'Completed' : 'Pending',
+      status: 'Completed',
     });
   }
 
   return updated;
+}
+
+export async function recordOrderPayment(id, { paymentAmount, paymentReceived = true, markDelivered = false }) {
+  const orders = await readCollection(STORAGE_KEYS.orders);
+  const index = orders.findIndex((o) => o.id === id);
+  if (index === -1) throw new Error(`Order not found with id: ${id}`);
+
+  const order = orders[index];
+
+  if (!paymentReceived) {
+    const updated = {
+      ...order,
+      ...(markDelivered ? { status: 'Delivered' } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    orders[index] = updated;
+    await writeCollection(STORAGE_KEYS.orders, orders);
+    return updated;
+  }
+
+  const amount = Math.max(0, parseFloat(paymentAmount) || 0);
+  if (amount <= 0) {
+    if (markDelivered) {
+      return updateOrder(id, { status: 'Delivered' });
+    }
+    return order;
+  }
+
+  const customers = await getCustomers();
+  const customer =
+    (order.customerId && customers.find((c) => c.id === order.customerId)) ||
+    customers.find((c) => c.name.toLowerCase() === (order.customerName || '').toLowerCase());
+
+  if (customer) {
+    await applyOrderCustomerCashPayment(
+      customer,
+      amount,
+      orders,
+      customers,
+      async (orderId, data) => setOrderPaidAmount(orderId, data),
+      async (customerId, delta) => adjustCustomerCreditBalance(customerId, delta),
+    );
+  } else {
+    const previousPaid = parseFloat(order.paidAmount || 0);
+    const total = parseFloat(order.totalAmount || 0);
+    const newPaid = Math.min(total, previousPaid + amount);
+    await setOrderPaidAmount(id, { paidAmount: newPaid });
+  }
+
+  if (markDelivered) {
+    return updateOrder(id, { status: 'Delivered' });
+  }
+
+  const refreshed = await readCollection(STORAGE_KEYS.orders);
+  return refreshed.find((o) => o.id === id) || order;
 }
 
 export async function recordSalePayment(id, { paidAmount, markPaid = true }) {
@@ -1093,11 +1149,11 @@ export async function saveTransactions(transactions) {
 export async function getSettings() {
   await initializeStore();
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.settings);
-  if (!raw) return { ...MOCK_SETTINGS };
+  if (!raw) return { ...DEFAULT_APP_SETTINGS };
   try {
     return JSON.parse(raw);
   } catch {
-    return { ...MOCK_SETTINGS };
+    return { ...DEFAULT_APP_SETTINGS };
   }
 }
 

@@ -103,9 +103,13 @@ export function OrderProvider({ children }) {
     }
   }, []);
 
-  const recordOrderPayment = useCallback(async (id, { paidAmount, markDelivered = false }) => {
+  const recordOrderPayment = useCallback(async (id, { paymentAmount, paymentReceived = true, markDelivered = false }) => {
     try {
-      const updatedOrder = await orderService.recordPayment(id, { paidAmount, markDelivered });
+      const updatedOrder = await orderService.recordPayment(id, {
+        paymentAmount,
+        paymentReceived,
+        markDelivered,
+      });
       const transformed = {
         ...updatedOrder,
         date: updatedOrder.orderDate

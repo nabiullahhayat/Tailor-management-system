@@ -14,4 +14,5 @@ export const STORAGE_KEYS = {
   employees: '@khayati/employees',
   customerMeasurementFields: '@khayati/customerMeasurementFields',
   initialized: '@khayati/initialized',
+  demoPurged: '@khayati/demoPurged',
 };
