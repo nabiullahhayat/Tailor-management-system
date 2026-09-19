@@ -251,3 +251,32 @@ export const MOCK_SETTINGS = {
   shopAddress: 'Main Market, City Center',
   currency: 'PKR',
 };
+
+/** Default settings for new installs (no demo shop details). */
+export const DEFAULT_APP_SETTINGS = {
+  language: 'pashto',
+  appName: 'Khayati',
+  shopName: '',
+  shopPhone: '',
+  shopAddress: '',
+  currency: 'PKR',
+};
+
+/** IDs of sample records seeded in early app versions — stripped on load. */
+export function collectDemoRecordIds() {
+  const ids = (arr) => (arr || []).map((x) => x.id).filter(Boolean);
+  return new Set([
+    ...ids(MOCK_CUSTOMERS),
+    ...ids(MOCK_ORDERS),
+    ...ids(MOCK_SALES),
+    ...ids(MOCK_FABRICS),
+    ...ids(MOCK_MACHINERY),
+    ...ids(MOCK_STOCK_LOGS),
+    ...ids(MOCK_EXPENSES),
+    ...ids(MOCK_INCOME),
+    ...ids(MOCK_TRANSACTIONS),
+    ...ids(MOCK_ORDER_TYPES),
+    ...ids(MOCK_EMPLOYEES),
+    ...ids(MOCK_CUSTOMER_MEASUREMENT_FIELDS),
+  ]);
+}

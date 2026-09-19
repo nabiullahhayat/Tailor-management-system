@@ -13,6 +13,7 @@ export const orderService = {
   updateStatus: async (id, status) => store.updateOrderStatus(id, status),
   updatePayment: async (id, paymentData) => store.updateOrderPayment(id, paymentData),
   recordPayment: async (id, paymentData) => store.recordOrderPayment(id, paymentData),
+  setPaidAmount: async (id, data) => store.setOrderPaidAmount(id, data),
   delete: async (id) => { await store.deleteOrder(id); return { success: true }; },
   getStats: async () => store.getOrderStats(),
 };

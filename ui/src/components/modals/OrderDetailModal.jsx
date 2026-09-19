@@ -8,24 +8,28 @@ import { notify } from '../../utils/toast.js';
 export default function OrderDetailModal({
   open,
   order,
+  customerBalance,
   onClose,
   onStatusChange,
   onRecordPayment,
 }) {
-  const [paidAmount, setPaidAmount] = useState('');
-  const [markDelivered, setMarkDelivered] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentReceived, setPaymentReceived] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [localStatus, setLocalStatus] = useState(order?.status);
 
   useEffect(() => {
     setLocalStatus(order?.status);
-    setPaidAmount('');
-    setMarkDelivered(false);
+    setPaymentAmount('');
+    setPaymentReceived(true);
   }, [order?.id, order?.status, open]);
 
   if (!order) return null;
 
   const displayOrder = { ...order, status: localStatus ?? order.status };
+  const total = Number(displayOrder.totalAmount || 0);
+  const paid = Number(displayOrder.paidAmount || 0);
+  const orderRemaining = Math.max(0, total - paid);
 
   const measurements =
     typeof displayOrder.measurements === 'string'
@@ -54,23 +58,31 @@ export default function OrderDetailModal({
   };
 
   const handlePayment = async () => {
-    const amount = parseFloat(paidAmount);
-    if (!amount || amount <= 0) {
-      notify.warning('Invalid amount', 'Enter a valid payment amount.');
+    const amount = parseFloat(paymentAmount) || 0;
+    if (paymentReceived && (!amount || amount <= 0)) {
+      notify.warning('Invalid amount', 'Enter a valid payment amount or uncheck Payment Received.');
       return;
     }
     try {
       const updated = await onRecordPayment(displayOrder.id, {
-        paidAmount: amount,
-        markDelivered,
+        paymentAmount: amount,
+        paymentReceived,
+        markDelivered: false,
       });
       if (updated?.status) setLocalStatus(updated.status);
-      setPaidAmount('');
-      setMarkDelivered(false);
+      setPaymentAmount('');
+      setPaymentReceived(true);
+      if (paymentReceived && amount > 0) {
+        notify.success('Payment recorded', `₹${amount.toLocaleString()} applied to customer balance`);
+      } else if (!paymentReceived) {
+        notify.info('Not recorded as payment', 'Remaining stays as debt on this order.');
+      }
     } catch (err) {
       notify.error('Payment failed', err.message || 'Could not record payment.');
     }
   };
+
+  const showPaymentBlock = displayOrder.status === 'Delivered';
 
   return (
     <Modal open={open} onClose={onClose} title={displayOrder.tokenNumber} subtitle={displayOrder.customerName} size="lg">
@@ -83,8 +95,9 @@ export default function OrderDetailModal({
         <div className="grid gap-3 sm:grid-cols-2">
           {[
             ['Order Type', displayOrder.orderType],
-            ['Total Amount', `₹${Number(displayOrder.totalAmount || 0).toLocaleString()}`],
-            ['Paid Amount', `₹${Number(displayOrder.paidAmount || 0).toLocaleString()}`],
+            ['Total Amount', `₹${total.toLocaleString()}`],
+            ['Paid on this order', `₹${paid.toLocaleString()}`],
+            ['Remaining on this order', `₹${orderRemaining.toLocaleString()}`],
             ['Delivery Date', displayOrder.deliveryDate || '—'],
             ['Employee', displayOrder.employeeName || '—'],
             ['Color', displayOrder.color || '—'],
@@ -95,6 +108,21 @@ export default function OrderDetailModal({
             </div>
           ))}
         </div>
+
+        {customerBalance && (
+          <div className="grid gap-2 rounded-xl border border-black/5 bg-background px-4 py-3 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-ink-muted">Customer total remaining (debt)</p>
+              <p className={`font-bold ${customerBalance.debt > 0 ? 'text-danger' : 'text-success'}`}>
+                ₹{Number(customerBalance.debt || 0).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-ink-muted">Customer prepaid credit</p>
+              <p className="font-bold text-success">₹{Number(customerBalance.credit || 0).toLocaleString()}</p>
+            </div>
+          </div>
+        )}
 
         {Object.keys(measurements).length > 0 && (
           <div>
@@ -124,24 +152,28 @@ export default function OrderDetailModal({
           ))}
         </div>
 
-        <div className="rounded-2xl border border-black/5 bg-background p-4">
-          <p className="mb-3 text-sm font-bold text-ink">Record Payment</p>
-          <Input
-            label="Paid Amount (₹)"
-            type="number"
-            value={paidAmount}
-            onChange={(e) => setPaidAmount(e.target.value)}
-          />
-          <label className="mb-4 flex items-center gap-2 text-sm text-ink-secondary">
-            <input
-              type="checkbox"
-              checked={markDelivered}
-              onChange={(e) => setMarkDelivered(e.target.checked)}
+        {showPaymentBlock && (
+          <div className="rounded-2xl border border-black/5 bg-background p-4">
+            <p className="mb-3 text-sm font-bold text-ink">Recorded Payment</p>
+            <Input
+              label="Amount (₹)"
+              type="number"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
             />
-            Mark as delivered when payment is recorded
-          </label>
-          <Button type="button" onClick={handlePayment}>Record Payment</Button>
-        </div>
+            <label className="mb-4 flex items-center gap-2 text-sm text-ink-secondary">
+              <input
+                type="checkbox"
+                checked={paymentReceived}
+                onChange={(e) => setPaymentReceived(e.target.checked)}
+              />
+              Payment received (uncheck to leave as debt / remaining)
+            </label>
+            <Button type="button" onClick={handlePayment}>
+              {paymentReceived ? 'Record Payment' : 'Save without payment'}
+            </Button>
+          </div>
+        )}
       </div>
     </Modal>
   );

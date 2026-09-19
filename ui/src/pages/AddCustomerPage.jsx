@@ -10,7 +10,7 @@ import { addsService } from '../services/index.js';
 import { notify } from '../utils/toast.js';
 
 function buildEmptyMeasurements(fieldNames) {
-  const base = { color: '', quantity: '' };
+  const base = {};
   fieldNames.forEach((name) => {
     base[name] = '';
   });
@@ -23,7 +23,7 @@ export default function AddCustomerPage() {
   const [phone, setPhone] = useState('');
   const [measurementFields, setMeasurementFields] = useState([]);
   const [fieldsLoading, setFieldsLoading] = useState(true);
-  const [measurements, setMeasurements] = useState({ color: '', quantity: '' });
+  const [measurements, setMeasurements] = useState({});
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState(null);
 
@@ -32,11 +32,7 @@ export default function AddCustomerPage() {
     try {
       const fields = await addsService.getCustomerMeasurementFields();
       setMeasurementFields(fields);
-      setMeasurements((prev) => ({
-        ...buildEmptyMeasurements(fields.map((f) => f.name)),
-        color: prev.color ?? '',
-        quantity: prev.quantity ?? '',
-      }));
+      setMeasurements(buildEmptyMeasurements(fields.map((f) => f.name)));
     } finally {
       setFieldsLoading(false);
     }
@@ -152,16 +148,6 @@ export default function AddCustomerPage() {
                     error={errors[`m_${fieldName}`]}
                   />
                 ))}
-                <Input
-                  label="Color"
-                  value={measurements.color || ''}
-                  onChange={(e) => setMeasurements((prev) => ({ ...prev, color: e.target.value }))}
-                />
-                <Input
-                  label="Quantity"
-                  value={measurements.quantity || ''}
-                  onChange={(e) => setMeasurements((prev) => ({ ...prev, quantity: e.target.value }))}
-                />
               </div>
             )}
           </div>

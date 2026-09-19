@@ -45,6 +45,14 @@ import {
   getOrdersByStatus,
   getSalesByType,
 } from '../utils/chartData.js';
+import { buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
+
+function resolveCustomerId(order, customers) {
+  if (order.customerId) return order.customerId;
+  const name = (order.customerName || '').trim().toLowerCase();
+  if (!name) return null;
+  return customers.find((c) => c.name.toLowerCase() === name)?.id ?? null;
+}
 
 const CHART_TOOLTIP_STYLE = {
   borderRadius: 8,
@@ -53,8 +61,8 @@ const CHART_TOOLTIP_STYLE = {
 };
 
 export default function OverviewPage() {
-  const { customers } = useCustomers();
-  const { orders, updateOrderStatus, recordOrderPayment } = useOrders();
+  const { customers, refreshCustomers } = useCustomers();
+  const { orders, updateOrderStatus, recordOrderPayment, refreshOrders } = useOrders();
   const { sales } = useSales();
   const [dashboardData, setDashboardData] = useState(null);
   const [income, setIncome] = useState([]);
@@ -65,6 +73,21 @@ export default function OverviewPage() {
     () => (selectedOrder ? orders.find((o) => o.id === selectedOrder.id) ?? selectedOrder : null),
     [selectedOrder, orders],
   );
+
+  const balanceMap = useMemo(
+    () => buildOrderCustomerBalanceMap(customers, orders),
+    [customers, orders],
+  );
+
+  const selectedCustomerBalance = useMemo(() => {
+    if (!liveSelectedOrder) return null;
+    const cid = resolveCustomerId(liveSelectedOrder, customers);
+    if (!cid || !balanceMap[cid]) return null;
+    return {
+      debt: balanceMap[cid].creditRemaining,
+      credit: balanceMap[cid].prepaidCredit,
+    };
+  }, [liveSelectedOrder, customers, balanceMap]);
 
   const fetchDashboard = useCallback(async () => {
     const [data, incomeData, expenseData] = await Promise.all([
@@ -318,6 +341,7 @@ export default function OverviewPage() {
       <OrderDetailModal
         open={!!liveSelectedOrder}
         order={liveSelectedOrder}
+        customerBalance={selectedCustomerBalance}
         onClose={() => setSelectedOrder(null)}
         onStatusChange={async (id, status) => {
           const updated = await updateOrderStatus(id, status);
@@ -327,7 +351,9 @@ export default function OverviewPage() {
         }}
         onRecordPayment={async (id, data) => {
           const updated = await recordOrderPayment(id, data);
-          setSelectedOrder(updated);
+          await refreshOrders();
+          await refreshCustomers();
+          setSelectedOrder((prev) => (prev?.id === id ? { ...prev, ...updated } : updated));
           fetchDashboard();
           return updated;
         }}

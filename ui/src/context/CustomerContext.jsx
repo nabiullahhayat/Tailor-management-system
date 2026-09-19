@@ -4,12 +4,9 @@ import { customerService } from '../services/index.js';
 const CustomerContext = createContext(null);
 
 /** Optional fields always available on Add Customer (not configured in Adds). */
-export const CUSTOMER_OPTIONAL_MEASUREMENT_KEYS = ['color', 'quantity'];
+export const CUSTOMER_OPTIONAL_MEASUREMENT_KEYS = [];
 
-export const EMPTY_MEASUREMENTS = {
-  color: '',
-  quantity: '',
-};
+export const EMPTY_MEASUREMENTS = {};
 
 export function CustomerProvider({ children }) {
   const [customers, setCustomers] = useState([]);
@@ -95,6 +92,30 @@ export function CustomerProvider({ children }) {
   }, []);
 
   /* ─── delete customer ──────────────────────────────────── */
+  const adjustCreditBalance = useCallback(async (id, delta) => {
+    try {
+      const updated = await customerService.adjustCreditBalance(id, delta);
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                ...updated,
+                measurements:
+                  typeof updated.measurements === 'object'
+                    ? updated.measurements
+                    : c.measurements,
+              }
+            : c,
+        ),
+      );
+      return updated;
+    } catch (err) {
+      console.error('Error adjusting customer credit:', err);
+      throw err;
+    }
+  }, []);
+
   const deleteCustomer = useCallback(async (id) => {
     try {
       await customerService.delete(id);
@@ -116,6 +137,7 @@ export function CustomerProvider({ children }) {
         addCustomer, 
         updateCustomer, 
         deleteCustomer,
+        adjustCreditBalance,
         refreshCustomers: fetchCustomers,
       }}
     >
