@@ -59,6 +59,11 @@ export function OrderProvider({ children }) {
         notes: data.notes || '',
         paymentStatus: data.paymentStatus || 'Pending',
         paidAmount: data.paidAmount ? parseFloat(data.paidAmount) : 0,
+        bookingCashReceived: data.bookingCashReceived ? parseFloat(data.bookingCashReceived) : 0,
+        bookingAppliedToDebt: data.bookingAppliedToDebt ? parseFloat(data.bookingAppliedToDebt) : 0,
+        bookingPrepaidAdded: data.bookingPrepaidAdded ? parseFloat(data.bookingPrepaidAdded) : 0,
+        orderLineItems: data.orderLineItems || [],
+        customerFabricMeters: data.customerFabricMeters ?? '',
       };
       
       const newOrder = await orderService.create(orderData);

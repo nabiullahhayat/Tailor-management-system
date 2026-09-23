@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
+import TablePagination, { usePagination } from '../components/desktop/TablePagination.jsx';
 import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { addsService } from '../services/index.js';
 import { notify } from '../utils/toast.js';
@@ -51,6 +52,8 @@ export default function AddsPage() {
     loadData();
   }, [loadData]);
 
+  const cmPagination = usePagination(customerMeasurements);
+
   const validateOrderType = () => {
     const e = {};
     if (!otName.trim()) e.name = 'Order type name is required.';
@@ -92,6 +95,14 @@ export default function AddsPage() {
 
   const addMeasurementField = () => {
     setOtMeasurements((prev) => [...prev, '']);
+  };
+
+  const removeMeasurementField = (index) => {
+    setOtMeasurements((prev) => {
+      if (prev.length <= 1) return [''];
+      return prev.filter((_, i) => i !== index);
+    });
+    setTypeErrors((p) => ({ ...p, measurements: '' }));
   };
 
   const validateEmployee = () => {
@@ -211,17 +222,28 @@ export default function AddsPage() {
               <p className="mb-2 text-xs text-danger">{typeErrors.measurements}</p>
             )}
             {otMeasurements.map((m, i) => (
-              <div key={`ot-measure-${i}`} className="mb-2">
-                <Input
-                  placeholder={`Measurement ${i + 1}`}
-                  value={m}
-                  onChange={(e) => {
-                    const next = [...otMeasurements];
-                    next[i] = e.target.value;
-                    setOtMeasurements(next);
-                    setTypeErrors((p) => ({ ...p, measurements: '' }));
-                  }}
-                />
+              <div key={`ot-measure-${i}`} className="mb-2 flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    placeholder={`Measurement ${i + 1}`}
+                    value={m}
+                    onChange={(e) => {
+                      const next = [...otMeasurements];
+                      next[i] = e.target.value;
+                      setOtMeasurements(next);
+                      setTypeErrors((p) => ({ ...p, measurements: '' }));
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeMeasurementField(i)}
+                  className="mt-1 rounded-md p-2 text-ink-muted transition hover:bg-red-50 hover:text-danger"
+                  aria-label="Remove measurement row"
+                  title="Remove row"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             ))}
             <Button type="button" variant="outline" className="mb-4" onClick={addMeasurementField}>
@@ -310,7 +332,7 @@ export default function AddsPage() {
                       </td>
                     </tr>
                   ) : (
-                    customerMeasurements.map((row) => (
+                    cmPagination.pageItems.map((row) => (
                       <tr key={row.id}>
                         <td className="font-medium text-ink">{row.name}</td>
                         <td className="measurement-names-actions">
@@ -337,6 +359,15 @@ export default function AddsPage() {
                   )}
                 </tbody>
               </table>
+              <TablePagination
+                page={cmPagination.page}
+                totalPages={cmPagination.totalPages}
+                totalItems={cmPagination.totalItems}
+                pageSize={cmPagination.pageSize}
+                start={cmPagination.start}
+                end={cmPagination.end}
+                onPageChange={cmPagination.setPage}
+              />
             </div>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen w-full overflow-hidden bg-background">
       <Sidebar
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
@@ -41,7 +41,7 @@ export default function Layout() {
         onToggleCollapse={() => setCollapsed((v) => !v)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">

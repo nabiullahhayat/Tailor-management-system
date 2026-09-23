@@ -9,6 +9,7 @@ import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { notify } from '../utils/toast.js';
 import { formatCurrency } from '../utils/chartData.js';
 import { useStock } from '../context/StockContext.jsx';
+import { getWarningQuantity, isStockAtOrBelowWarning } from '../utils/stockWarnings.js';
 
 export default function StockPage() {
   const {
@@ -31,12 +32,12 @@ export default function StockPage() {
   const [form, setForm] = useState({});
 
   const openCreate = (category) => {
-    setForm({ name: '', price: '', stock: '', supplier: '', quantity: '', purchasePrice: '' });
+    setForm({ name: '', price: '', stock: '', supplier: '', warningQuantity: '', quantity: '', purchasePrice: '' });
     setModal({ type: 'create', category });
   };
 
   const openPurchase = (category) => {
-    setForm({ itemId: '', quantity: '', purchasePrice: '', supplier: '', date: new Date().toISOString().split('T')[0] });
+    setForm({ itemId: '', quantity: '', purchasePrice: '', date: new Date().toISOString().split('T')[0] });
     setModal({ type: 'purchase', category });
   };
 
@@ -47,9 +48,13 @@ export default function StockPage() {
       price: String(category === 'fabric' ? item.pricePerMeter : item.unitPrice),
       stock: String(item.stock),
       supplier: item.supplier || '',
+      warningQuantity: item.warningQuantity != null ? String(item.warningQuantity) : '',
     });
     setModal({ type: 'edit', category });
   };
+
+  const purchaseItems = modal?.category === 'fabric' ? fabrics : machinery;
+  const selectedPurchaseItem = purchaseItems.find((i) => i.id === form.itemId);
 
   const handleSave = async () => {
     if (modal.type === 'create') {
@@ -59,6 +64,7 @@ export default function StockPage() {
           pricePerMeter: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       } else {
         await createMachineryItem({
@@ -66,13 +72,13 @@ export default function StockPage() {
           unitPrice: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       }
     } else if (modal.type === 'purchase') {
       const entry = {
         quantity: form.quantity,
         purchasePrice: form.purchasePrice,
-        supplier: form.supplier,
         date: form.date,
         totalCost: Number(form.quantity) * Number(form.purchasePrice),
       };
@@ -90,6 +96,7 @@ export default function StockPage() {
           pricePerMeter: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       } else {
         await updateMachinery(form.id, {
@@ -97,6 +104,7 @@ export default function StockPage() {
           unitPrice: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       }
     }
@@ -115,16 +123,40 @@ export default function StockPage() {
   const fabricColumns = [
     { key: 'name', label: 'Fabric', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'price', label: 'Price/Meter', render: (r) => formatCurrency(r.pricePerMeter) },
-    { key: 'stock', label: 'Stock (m)', render: (r) => <span className={r.stock < 10 ? 'font-bold text-danger' : 'font-semibold'}>{r.stock}</span> },
-    { key: 'supplier', label: 'Supplier', render: (r) => r.supplier || '—' },
+    {
+      key: 'stock',
+      label: 'Stock (m)',
+      render: (r) => (
+        <span className={isStockAtOrBelowWarning(r, 'fabric') ? 'font-bold text-danger' : 'font-semibold'}>
+          {r.stock}
+        </span>
+      ),
+    },
+    {
+      key: 'warningQuantity',
+      label: 'Warning at',
+      render: (r) => getWarningQuantity(r, 'fabric'),
+    },
     { key: 'actions', label: 'Actions', className: 'w-28', render: (r) => stockActions('fabric', r) },
   ];
 
   const machineryColumns = [
     { key: 'name', label: 'Machine', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'price', label: 'Unit Price', render: (r) => formatCurrency(r.unitPrice) },
-    { key: 'stock', label: 'Stock', render: (r) => <span className={r.stock < 3 ? 'font-bold text-danger' : 'font-semibold'}>{r.stock}</span> },
-    { key: 'supplier', label: 'Supplier', render: (r) => r.supplier || '—' },
+    {
+      key: 'stock',
+      label: 'Stock',
+      render: (r) => (
+        <span className={isStockAtOrBelowWarning(r, 'machinery') ? 'font-bold text-danger' : 'font-semibold'}>
+          {r.stock}
+        </span>
+      ),
+    },
+    {
+      key: 'warningQuantity',
+      label: 'Warning at',
+      render: (r) => getWarningQuantity(r, 'machinery'),
+    },
     { key: 'actions', label: 'Actions', className: 'w-28', render: (r) => stockActions('machinery', r) },
   ];
 
@@ -194,8 +226,10 @@ export default function StockPage() {
               <span className="font-semibold">{viewItem.stock}</span>
             </div>
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">Supplier</span>
-              <span className="font-semibold">{viewItem.supplier || '—'}</span>
+              <span className="text-ink-muted">Warning quantity</span>
+              <span className="font-semibold">
+                {getWarningQuantity(viewItem, isFabricView ? 'fabric' : 'machinery')}
+              </span>
             </div>
           </div>
         )}
@@ -214,15 +248,23 @@ export default function StockPage() {
       >
         {modal?.type === 'purchase' ? (
           <>
-            <select value={form.itemId} onChange={(e) => setForm((p) => ({ ...p, itemId: e.target.value }))} className="mb-4 w-full rounded-xl border px-3 py-2.5 text-sm">
+            <select value={form.itemId} onChange={(e) => setForm((p) => ({ ...p, itemId: e.target.value }))} className="mb-2 w-full rounded-xl border px-3 py-2.5 text-sm">
               <option value="">Select item…</option>
-              {(modal.category === 'fabric' ? fabrics : machinery).map((item) => (
+              {purchaseItems.map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
+            {selectedPurchaseItem && (
+              <div className="mb-4 rounded-xl border border-primary-soft bg-background px-3 py-2 text-sm">
+                <span className="text-ink-muted">Current stock: </span>
+                <span className="font-bold text-ink">
+                  {selectedPurchaseItem.stock}
+                  {modal.category === 'fabric' ? ' m' : ' units'}
+                </span>
+              </div>
+            )}
             <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} />
             <Input label="Purchase Price" type="number" value={form.purchasePrice} onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))} />
-            <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
             <Input label="Date" type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
           </>
         ) : (
@@ -230,7 +272,16 @@ export default function StockPage() {
             <Input label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
             <Input label={modal?.category === 'fabric' ? 'Price per Meter' : 'Unit Price'} type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
             <Input label="Stock" type="number" value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))} />
-            <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
+            <Input
+              label={modal?.category === 'fabric' ? 'Warning quantity (meters)' : 'Warning quantity (units)'}
+              type="number"
+              value={form.warningQuantity}
+              onChange={(e) => setForm((p) => ({ ...p, warningQuantity: e.target.value }))}
+              placeholder={modal?.category === 'fabric' ? 'Alert when stock is at or below this' : 'Alert when stock is at or below this'}
+            />
+            {modal?.type === 'edit' && (
+              <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
+            )}
           </>
         )}
         <Button className="mt-4" onClick={handleSave}>Save</Button>

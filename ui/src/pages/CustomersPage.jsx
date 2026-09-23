@@ -8,14 +8,18 @@ import SearchInput from '../components/ui/SearchInput.jsx';
 import Button from '../components/ui/Button.jsx';
 import CustomerDetailsModal, {
   EditCustomerModal,
+  AddOrderCustomerModal,
   AddSalesCustomerModal,
   SalesCustomerDetailsModal,
   EditSalesCustomerModal,
   DeleteConfirmModal,
 } from '../components/modals/CustomerModals.jsx';
 import { useCustomers } from '../context/CustomerContext.jsx';
+import { useOrders } from '../context/OrderContext.jsx';
 import { useSalesCustomers } from '../context/SalesCustomerContext.jsx';
 import { useSales } from '../context/SaleContext.jsx';
+import { applyOrderCustomerCashPayment, buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
+import { orderService } from '../services/index.js';
 import { notify } from '../utils/toast.js';
 import {
   applySalesCustomerCreditPayment,
@@ -24,9 +28,22 @@ import {
 } from '../utils/salesCustomerBalance.js';
 
 export default function CustomersPage() {
-  const { customers, updateCustomer, deleteCustomer } = useCustomers();
+  const {
+    customers,
+    addCustomer,
+    updateCustomer,
+    deleteCustomer,
+    adjustCreditBalance: adjustOrderCreditBalance,
+    refreshCustomers,
+  } = useCustomers();
+  const { orders, refreshOrders } = useOrders();
   const { salesCustomers, addSalesCustomer, updateSalesCustomer, deleteSalesCustomer, adjustCreditBalance } = useSalesCustomers();
   const { sales, updatePaymentStatus } = useSales();
+
+  const orderBalanceMap = useMemo(
+    () => buildOrderCustomerBalanceMap(customers, orders),
+    [customers, orders],
+  );
 
   const salesBalanceMap = useMemo(
     () => buildSalesCustomerBalanceMap(salesCustomers, sales),
@@ -38,6 +55,7 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [addOrderCustomerOpen, setAddOrderCustomerOpen] = useState(false);
 
   const [addSaleOpen, setAddSaleOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
@@ -69,10 +87,31 @@ export default function CustomersPage() {
     );
   }, [salesCustomers, query]);
 
+  const fmt = (n) => `₹${Number(n || 0).toLocaleString()}`;
+
   const orderColumns = [
     { key: 'token', label: 'Token', render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
     { key: 'name', label: 'Customer Name', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'phone', label: 'Phone', render: (r) => r.phone },
+    {
+      key: 'remaining',
+      label: 'Remaining (debt)',
+      render: (r) => {
+        const debt = orderBalanceMap[r.id]?.creditRemaining ?? 0;
+        return (
+          <span className={`font-semibold ${debt > 0 ? 'text-danger' : 'text-ink-muted'}`}>{fmt(debt)}</span>
+        );
+      },
+    },
+    {
+      key: 'prepaid',
+      label: 'Credit',
+      render: (r) => (
+        <span className="font-semibold text-success">
+          {fmt(orderBalanceMap[r.id]?.prepaidCredit ?? r.creditBalance)}
+        </span>
+      ),
+    },
     { key: 'added', label: 'Added', render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
     {
       key: 'actions',
@@ -86,8 +125,6 @@ export default function CustomersPage() {
       ),
     },
   ];
-
-  const fmt = (n) => `₹${Number(n || 0).toLocaleString()}`;
 
   const saleColumns = [
     { key: 'name', label: 'Customer Name', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
@@ -149,11 +186,9 @@ export default function CustomersPage() {
         breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Customers' }]}
         actions={
           isOrder ? (
-            <Link to="/customers/new">
-              <Button>
-                <Plus size={16} /> Add Customer
-              </Button>
-            </Link>
+            <Button type="button" onClick={() => setAddOrderCustomerOpen(true)}>
+              <Plus size={16} /> Add Customer
+            </Button>
           ) : (
             <Button type="button" onClick={() => setAddSaleOpen(true)}>
               <Plus size={16} /> Add Sales Customer
@@ -205,6 +240,12 @@ export default function CustomersPage() {
         )}
       </PageShell>
 
+      <AddOrderCustomerModal
+        open={addOrderCustomerOpen}
+        onClose={() => setAddOrderCustomerOpen(false)}
+        onSave={(name, phone, measurements) => addCustomer(name, phone, measurements)}
+      />
+
       <CustomerDetailsModal
         open={!!selected}
         customer={selected}
@@ -213,10 +254,45 @@ export default function CustomersPage() {
       <EditCustomerModal
         open={!!editTarget}
         customer={editTarget}
+        creditRemaining={editTarget ? orderBalanceMap[editTarget.id]?.creditRemaining : 0}
+        prepaidCredit={
+          editTarget
+            ? orderBalanceMap[editTarget.id]?.prepaidCredit ?? editTarget.creditBalance
+            : 0
+        }
         onClose={() => setEditTarget(null)}
-        onSave={async (id, name, phone, measurements) => {
-          await updateCustomer(id, name, phone, measurements);
-          notify.success('Customer updated');
+        onSave={async (payload) => {
+          await updateCustomer(payload.id, payload.name, payload.phone, payload.measurements);
+
+          const creditDelta = payload.creditBalance - payload.initialCredit;
+          if (creditDelta !== 0) {
+            await adjustOrderCreditBalance(payload.id, creditDelta);
+          }
+
+          if (payload.collectedAmount > 0) {
+            const customerRecord = customers.find((c) => c.id === payload.id) || editTarget;
+            await applyOrderCustomerCashPayment(
+              { ...customerRecord, name: payload.name },
+              payload.collectedAmount,
+              orders,
+              customers,
+              (orderId, data) =>
+                orderService.setPaidAmount(orderId, {
+                  ...data,
+                  recordIncome: payload.sendToDakhal,
+                }),
+              (cid, delta) => adjustOrderCreditBalance(cid, delta),
+            );
+          }
+
+          await refreshOrders();
+          await refreshCustomers();
+          notify.success(
+            'Customer updated',
+            payload.collectedAmount > 0 && payload.sendToDakhal
+              ? `₹${payload.collectedAmount.toLocaleString()} added to Dakhal`
+              : undefined,
+          );
         }}
       />
       <DeleteConfirmModal

@@ -1,13 +1,30 @@
+import TablePagination, { DEFAULT_PAGE_SIZE, usePagination } from './TablePagination.jsx';
+
 export default function DataTable({
   columns,
   rows,
   onRowClick,
   emptyMessage = 'No records found',
+  compact = false,
+  pageSize = DEFAULT_PAGE_SIZE,
+  paginate = true,
 }) {
+  const {
+    page,
+    setPage,
+    pageItems,
+    totalPages,
+    totalItems,
+    start,
+    end,
+  } = usePagination(rows, pageSize);
+
+  const displayRows = paginate ? pageItems : rows;
+
   return (
     <div className="panel overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="data-table">
+      <div className={compact ? 'overflow-x-hidden' : 'overflow-x-auto'}>
+        <table className={compact ? 'data-table-compact' : 'data-table'}>
           <thead>
             <tr>
               {columns.map((col) => (
@@ -23,9 +40,9 @@ export default function DataTable({
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
+              displayRows.map((row) => (
                 <tr
-                  key={row.id}
+                  key={row.id ?? row.tokenNumber ?? row.name}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={onRowClick ? 'cursor-pointer' : ''}
                 >
@@ -40,6 +57,17 @@ export default function DataTable({
           </tbody>
         </table>
       </div>
+      {paginate && rows.length > 0 && (
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          start={start}
+          end={end}
+          onPageChange={setPage}
+        />
+      )}
     </div>
   );
 }

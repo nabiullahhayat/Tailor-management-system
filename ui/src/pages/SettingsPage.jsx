@@ -63,7 +63,6 @@ export default function SettingsPage() {
               {[
                 { value: 'pashto', label: 'Pashto', sub: 'پښتو' },
                 { value: 'dari', label: 'Dari', sub: 'دری' },
-                { value: 'english', label: 'English', sub: 'English' },
               ].map((lang) => (
                 <button
                   key={lang.value}

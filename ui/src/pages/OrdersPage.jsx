@@ -15,7 +15,6 @@ import { useCustomers } from '../context/CustomerContext.jsx';
 import { formatCurrency } from '../utils/chartData.js';
 import { buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
 import { notify } from '../utils/toast.js';
-
 const STATUS_FILTERS = ['All', 'Finding', 'Ready', 'Delivered'];
 
 function resolveCustomerId(order, customers) {
@@ -68,12 +67,39 @@ export default function OrdersPage() {
     [orders, query, statusFilter],
   );
 
+  const customerPhoneFor = (order) => {
+    const cid = resolveCustomerId(order, customers);
+    const c = cid ? customers.find((x) => x.id === cid) : null;
+    return c?.phone || '';
+  };
+
   const columns = [
-    { key: 'token', label: 'Order #', render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
-    { key: 'customer', label: 'Customer', render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
-    { key: 'type', label: 'Garment', render: (r) => r.orderType },
-    { key: 'delivery', label: 'Delivery', render: (r) => r.deliveryDate?.split('T')[0] || '—' },
-    { key: 'amount', label: 'Total', render: (r) => formatCurrency(r.totalAmount) },
+    {
+      key: 'token',
+      label: 'Order',
+      className: 'w-[4.5rem]',
+      render: (r) => <span className="font-semibold text-accent">{r.tokenNumber.replace('ORD-', '')}</span>,
+    },
+    {
+      key: 'customer',
+      label: 'Customer',
+      render: (r) => (
+        <span className="block max-w-[7rem] truncate font-medium text-ink" title={r.customerName}>
+          {r.customerName}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Garment',
+      render: (r) => (
+        <span className="block max-w-[5rem] truncate" title={r.orderType}>
+          {r.orderType}
+        </span>
+      ),
+    },
+    { key: 'delivery', label: 'Del.', className: 'whitespace-nowrap', render: (r) => r.deliveryDate?.split('T')[0] || '—' },
+    { key: 'amount', label: 'Total', className: 'whitespace-nowrap', render: (r) => formatCurrency(r.totalAmount) },
     {
       key: 'paid',
       label: 'Paid',
@@ -91,7 +117,8 @@ export default function OrdersPage() {
     },
     {
       key: 'custBalance',
-      label: 'Customer balance',
+      label: 'Balance',
+      className: 'whitespace-nowrap',
       render: (r) => {
         const cid = resolveCustomerId(r, customers);
         if (!cid || !balanceMap[cid]) return '—';
@@ -107,11 +134,11 @@ export default function OrdersPage() {
       },
     },
     { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'payment', label: 'Payment', render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
+    { key: 'payment', label: 'Pay', render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
     {
       key: 'actions',
       label: 'Actions',
-      className: 'w-28',
+      className: 'w-[5.5rem]',
       render: (r) => (
         <TableRowActions
           onView={() => setSelected(r)}
@@ -157,6 +184,7 @@ export default function OrdersPage() {
         </div>
 
         <DataTable
+          compact
           columns={columns}
           rows={filtered}
           onRowClick={setSelected}
@@ -168,7 +196,9 @@ export default function OrdersPage() {
         open={!!liveSelected}
         order={liveSelected}
         customerBalance={selectedCustomerBalance}
+        customerPhone={liveSelected ? customerPhoneFor(liveSelected) : ''}
         onClose={() => setSelected(null)}
+        onPaymentComplete={() => setSelected(null)}
         onStatusChange={async (id, status) => {
           const updated = await updateOrderStatus(id, status);
           setSelected((prev) => (prev?.id === id ? { ...prev, ...updated, status: updated?.status ?? status } : prev));
@@ -197,7 +227,8 @@ export default function OrdersPage() {
         onConfirm={async () => {
           try {
             await deleteOrder(deleteTarget.id);
-            notify.success('Order deleted', deleteTarget.tokenNumber);
+            await refreshOrders();
+            notify.success('Order deleted', `${deleteTarget.tokenNumber} and related Dakhal entries removed`);
             if (selected?.id === deleteTarget.id) setSelected(null);
             setDeleteTarget(null);
           } catch (err) {

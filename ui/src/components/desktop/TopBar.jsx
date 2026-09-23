@@ -1,19 +1,85 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, Menu, Plus, Search } from 'lucide-react';
+import { AlertTriangle, Bell, Calendar, Menu, Plus, Search, X } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext.jsx';
+import { useStock } from '../../context/StockContext.jsx';
+import { useOrders } from '../../context/OrderContext.jsx';
 import { getActiveNavItem } from '../../utils/navActive.js';
+import { collectStockWarnings } from '../../utils/stockWarnings.js';
+import {
+  formatOrderWarningLabel,
+  getTomorrowDateKey,
+  isOrderDeliveryTomorrow,
+} from '../../utils/orderDelivery.js';
+import {
+  deliveryNotificationKey,
+  loadDismissedNotificationKeys,
+  saveDismissedNotificationKeys,
+  stockNotificationKey,
+} from '../../utils/notificationDismiss.js';
 
 export default function TopBar({ onMenuClick }) {
   const { appName } = useSettings();
+  const { fabrics, machinery } = useStock();
+  const { orders } = useOrders();
   const location = useLocation();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [dismissedKeys, setDismissedKeys] = useState(() => loadDismissedNotificationKeys());
+  const notificationsRef = useRef(null);
 
   const currentPage = useMemo(
     () => getActiveNavItem(location.pathname)?.label || 'Dashboard',
     [location.pathname],
   );
+
+  const stockWarnings = useMemo(
+    () => collectStockWarnings(fabrics, machinery),
+    [fabrics, machinery],
+  );
+
+  const deliveryTomorrowOrders = useMemo(
+    () => orders.filter((o) => isOrderDeliveryTomorrow(o)),
+    [orders],
+  );
+
+  const visibleDeliveryAlerts = useMemo(() => {
+    const tomorrowKey = getTomorrowDateKey();
+    return deliveryTomorrowOrders.filter(
+      (o) => !dismissedKeys.has(deliveryNotificationKey(o.id, tomorrowKey)),
+    );
+  }, [deliveryTomorrowOrders, dismissedKeys]);
+
+  const visibleStockWarnings = useMemo(
+    () =>
+      stockWarnings.filter(
+        (a) => !dismissedKeys.has(stockNotificationKey(a.kind, a.id, a.stock)),
+      ),
+    [stockWarnings, dismissedKeys],
+  );
+
+  const notificationCount = visibleStockWarnings.length + visibleDeliveryAlerts.length;
+
+  const dismissNotification = (key) => {
+    setDismissedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      saveDismissedNotificationKeys(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const onDocClick = (e) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [notificationsOpen]);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
@@ -66,10 +132,129 @@ export default function TopBar({ onMenuClick }) {
           <Calendar size={14} className="text-accent" />
           {today}
         </div>
-        <button type="button" className="relative rounded-lg border border-primary-soft p-2 text-ink-muted hover:bg-primary-soft">
-          <Bell size={18} />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
-        </button>
+
+        <div className="relative" ref={notificationsRef}>
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen((o) => !o)}
+            className="relative rounded-lg border border-primary-soft p-2 text-ink-muted hover:bg-primary-soft"
+            aria-label="Notifications"
+            aria-expanded={notificationsOpen}
+          >
+            <Bell size={18} />
+            {notificationCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </span>
+            )}
+          </button>
+
+          {notificationsOpen && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-primary-soft bg-surface py-2 shadow-lg">
+              <div className="border-b border-primary-soft px-4 py-2">
+                <p className="text-sm font-bold text-ink">Notifications</p>
+                <p className="text-xs text-ink-muted">Delivery and stock alerts</p>
+              </div>
+
+              {notificationCount === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-ink-muted">No notifications right now.</p>
+              ) : (
+                <ul className="max-h-80 overflow-y-auto py-1">
+                  {visibleDeliveryAlerts.map((order) => {
+                    const dismissKey = deliveryNotificationKey(order.id, getTomorrowDateKey());
+                    return (
+                      <li key={`delivery-${order.id}`} className="flex items-start gap-0.5 pr-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            navigate('/orders');
+                          }}
+                          className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
+                        >
+                          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-ink">
+                              Warning: Order {formatOrderWarningLabel(order)} delivery is tomorrow.
+                            </p>
+                            <p className="truncate text-xs text-ink-muted">{order.customerName}</p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Dismiss notification"
+                          onClick={() => dismissNotification(dismissKey)}
+                          className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
+                        >
+                          <X size={16} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {visibleStockWarnings.map((alert) => {
+                    const dismissKey = stockNotificationKey(alert.kind, alert.id, alert.stock);
+                    return (
+                      <li key={`${alert.kind}-${alert.id}`} className="flex items-start gap-0.5 pr-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            navigate('/stock');
+                          }}
+                          className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
+                        >
+                          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-ink">{alert.name}</p>
+                            <p className="text-xs text-ink-muted">
+                              Low stock · {alert.stock} {alert.unitLabel} left (warn ≤ {alert.warningQuantity})
+                            </p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Dismiss notification"
+                          onClick={() => dismissNotification(dismissKey)}
+                          className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
+                        >
+                          <X size={16} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              <div className="flex flex-wrap gap-3 border-t border-primary-soft px-4 py-2">
+                {visibleDeliveryAlerts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      navigate('/orders');
+                    }}
+                    className="text-xs font-semibold text-accent hover:underline"
+                  >
+                    All orders
+                  </button>
+                )}
+                {visibleStockWarnings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      navigate('/stock');
+                    }}
+                    className="text-xs font-semibold text-accent hover:underline"
+                  >
+                    Stock management
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={() => navigate('/orders/new')}

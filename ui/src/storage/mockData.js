@@ -160,7 +160,7 @@ export const MOCK_ORDERS = [
 
 export const MOCK_FABRICS = [
   { id: 'fabric-1', name: 'Cotton Fabric', pricePerMeter: 150, stock: 120, unit: 'meters', supplier: 'Karachi Mills', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
-  { id: 'fabric-2', name: 'Silk Fabric', pricePerMeter: 500, stock: 8, unit: 'meters', supplier: 'Lahore Textiles', supplierContact: '', notes: 'Premium quality', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
+  { id: 'fabric-2', name: 'Silk Fabric', pricePerMeter: 500, stock: 8, warningQuantity: 10, unit: 'meters', supplier: 'Lahore Textiles', supplierContact: '', notes: 'Premium quality', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
   { id: 'fabric-3', name: 'Denim Fabric', pricePerMeter: 200, stock: 45, unit: 'meters', supplier: 'Faisalabad Co.', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
   { id: 'fabric-4', name: 'Linen Fabric', pricePerMeter: 180, stock: 60, unit: 'meters', supplier: 'Karachi Mills', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
   { id: 'fabric-5', name: 'Woolen Fabric', pricePerMeter: 350, stock: 30, unit: 'meters', supplier: 'Islamabad Co.', supplierContact: '', notes: 'Winter stock', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
@@ -168,7 +168,7 @@ export const MOCK_FABRICS = [
 
 export const MOCK_MACHINERY = [
   { id: 'mach-1', name: 'Sewing Machine', unitPrice: 25000, stock: 5, unit: 'units', supplier: 'Tech Traders', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
-  { id: 'mach-2', name: 'Overlock Machine', unitPrice: 30000, stock: 2, unit: 'units', supplier: 'Machine World', supplierContact: '', notes: 'Low stock', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
+  { id: 'mach-2', name: 'Overlock Machine', unitPrice: 30000, stock: 2, warningQuantity: 3, unit: 'units', supplier: 'Machine World', supplierContact: '', notes: 'Low stock', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
   { id: 'mach-3', name: 'Embroidery Machine', unitPrice: 45000, stock: 3, unit: 'units', supplier: 'Tech Traders', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
   { id: 'mach-4', name: 'Button Machine', unitPrice: 8000, stock: 8, unit: 'units', supplier: 'Local Supplier', supplierContact: '', notes: '', dateAdded: `${thisMonth}-01T08:00:00.000Z`, createdAt: `${thisMonth}-01T08:00:00.000Z`, updatedAt: `${thisMonth}-01T08:00:00.000Z` },
 ];

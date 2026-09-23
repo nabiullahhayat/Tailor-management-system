@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { User, Phone } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
 import { CUSTOMER_OPTIONAL_MEASUREMENT_KEYS } from '../../context/CustomerContext.jsx';
 import { addsService } from '../../services/index.js';
 import { notify } from '../../utils/toast.js';
+
+function buildEmptyMeasurements(fieldNames) {
+  const base = {};
+  fieldNames.forEach((name) => {
+    base[name] = '';
+  });
+  return base;
+}
 
 function useMeasurementFieldNames(open) {
   const [fields, setFields] = useState([]);
@@ -91,19 +101,31 @@ export default function CustomerDetailsModal({ open, customer, onClose }) {
   );
 }
 
-export function EditCustomerModal({ open, customer, onClose, onSave }) {
+export function EditCustomerModal({
+  open,
+  customer,
+  creditRemaining = 0,
+  prepaidCredit = 0,
+  onClose,
+  onSave,
+}) {
   const fieldDefs = useMeasurementFieldNames(open);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [measurements, setMeasurements] = useState({});
+  const [remainingDebt, setRemainingDebt] = useState('');
+  const [creditBalance, setCreditBalance] = useState('');
+  const [sendToDakhal, setSendToDakhal] = useState(true);
+  const [initialDebt, setInitialDebt] = useState(0);
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!customer) return;
     setName(customer.name || '');
     setPhone(customer.phone || '');
     const m = customer.measurements || {};
-    const next = { color: m.color ?? '', quantity: m.quantity ?? '' };
+    const next = {};
     fieldDefs.forEach((f) => {
       next[f.name] = m[f.name] ?? '';
     });
@@ -111,29 +133,88 @@ export function EditCustomerModal({ open, customer, onClose, onSave }) {
       if (!(k in next)) next[k] = m[k];
     });
     setMeasurements(next);
+    const debt = Number(creditRemaining) || 0;
+    setInitialDebt(debt);
+    setRemainingDebt(String(debt));
+    setCreditBalance(String(Number(prepaidCredit) || Number(customer.creditBalance || 0)));
+    setSendToDakhal(true);
     setErrors({});
-  }, [customer, fieldDefs]);
+  }, [customer, fieldDefs, creditRemaining, prepaidCredit, open]);
 
   const validate = useCallback(() => {
     const e = {};
     if (!name.trim()) e.name = 'Name is required.';
     if (!phone.trim()) e.phone = 'Phone is required.';
+    const nextRem = parseFloat(remainingDebt);
+    if (Number.isNaN(nextRem) || nextRem < 0) e.remaining = 'Enter a valid remaining amount.';
+    else if (nextRem > initialDebt + 0.001) {
+      e.remaining = 'To record money received, enter a remaining amount lower than the current total.';
+    }
+    const nextCredit = parseFloat(creditBalance);
+    if (Number.isNaN(nextCredit) || nextCredit < 0) e.credit = 'Enter a valid credit balance.';
     fieldDefs.forEach(({ name: fieldName }) => {
       const val = String(measurements[fieldName] ?? '').trim();
       if (!val) e[`m_${fieldName}`] = `${fieldName} is required.`;
     });
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [name, phone, measurements, fieldDefs]);
+  }, [name, phone, measurements, fieldDefs, remainingDebt, creditBalance, initialDebt]);
 
   if (!customer) return null;
+
+  const nextRemaining = Math.max(0, parseFloat(remainingDebt) || 0);
+  const collectedAmount = Math.max(0, initialDebt - nextRemaining);
 
   return (
     <Modal open={open} onClose={onClose} title="Edit Order Customer" subtitle={customer.tokenNumber} size="lg">
       <Input label="Name *" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
       <Input label="Phone *" value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
 
-      <p className="mb-2 mt-4 text-sm font-semibold text-ink">Measurements</p>
+      <div className="my-4 rounded-xl border border-primary-soft bg-background p-4">
+        <p className="mb-3 text-sm font-semibold text-ink">Balance</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input
+            label="Remaining (debt) ₹"
+            type="number"
+            min="0"
+            value={remainingDebt}
+            onChange={(e) => {
+              setRemainingDebt(e.target.value);
+              setErrors((p) => ({ ...p, remaining: '' }));
+            }}
+            error={errors.remaining}
+          />
+          <Input
+            label="Credit balance ₹"
+            type="number"
+            min="0"
+            value={creditBalance}
+            onChange={(e) => {
+              setCreditBalance(e.target.value);
+              setErrors((p) => ({ ...p, credit: '' }));
+            }}
+            error={errors.credit}
+          />
+        </div>
+        {collectedAmount > 0 && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm">
+            <p className="text-ink-secondary">
+              Lowering remaining records <strong>₹{collectedAmount.toLocaleString()}</strong> received from
+              the customer.
+            </p>
+            <label className="mt-2 flex items-center gap-2 font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={sendToDakhal}
+                onChange={(e) => setSendToDakhal(e.target.checked)}
+              />
+              Add this amount to Dakhal (income)
+            </label>
+          </div>
+        )}
+      </div>
+
+      <p className="mb-2 text-sm font-semibold text-ink">Measurements</p>
       <div className="grid max-h-[40vh] gap-3 overflow-y-auto sm:grid-cols-2">
         {fieldDefs.map(({ id, name: fieldName }) => (
           <Input
@@ -151,30 +232,39 @@ export function EditCustomerModal({ open, customer, onClose, onSave }) {
             error={errors[`m_${fieldName}`]}
           />
         ))}
-        <Input
-          label="Color"
-          value={measurements.color || ''}
-          onChange={(e) => setMeasurements((prev) => ({ ...prev, color: e.target.value }))}
-        />
-        <Input
-          label="Quantity"
-          value={measurements.quantity || ''}
-          onChange={(e) => setMeasurements((prev) => ({ ...prev, quantity: e.target.value }))}
-        />
       </div>
 
       <Button
         className="mt-4"
+        disabled={saving}
         onClick={async () => {
           if (!validate()) {
-            notify.warning('Fix errors', 'Fill required measurement fields.');
+            notify.warning('Fix errors', 'Check the form and try again.');
             return;
           }
-          await onSave(customer.id, name, phone, measurements);
-          onClose();
+          setSaving(true);
+          try {
+            await onSave({
+              id: customer.id,
+              name: name.trim(),
+              phone: phone.trim(),
+              measurements,
+              remainingDebt: nextRemaining,
+              creditBalance: parseFloat(creditBalance) || 0,
+              initialDebt,
+              initialCredit: Number(prepaidCredit) || Number(customer.creditBalance || 0),
+              collectedAmount,
+              sendToDakhal: collectedAmount > 0 ? sendToDakhal : false,
+            });
+            onClose();
+          } catch (err) {
+            notify.error('Could not save', err.message);
+          } finally {
+            setSaving(false);
+          }
         }}
       >
-        Save Changes
+        {saving ? 'Saving…' : 'Save Changes'}
       </Button>
     </Modal>
   );
@@ -274,6 +364,117 @@ export function SalesCustomerDetailsModal({
         <Button onClick={() => onEdit(customer)}>Edit</Button>
         <Button variant="danger" onClick={() => onDelete(customer)}>
           Delete
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+export function AddOrderCustomerModal({ open, onClose, onSave }) {
+  const fieldDefs = useMeasurementFieldNames(open);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [measurements, setMeasurements] = useState({});
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName('');
+    setPhone('');
+    setMeasurements(buildEmptyMeasurements(fieldDefs.map((f) => f.name)));
+    setErrors({});
+  }, [open, fieldDefs]);
+
+  const validate = () => {
+    const e = {};
+    if (!name.trim()) e.name = 'Name is required.';
+    if (!phone.trim()) e.phone = 'Phone is required.';
+    else if (!/^\d+$/.test(phone)) e.phone = 'Digits only.';
+    else if (phone.length !== 10) e.phone = 'Must be exactly 10 digits.';
+    else if (!phone.startsWith('07')) e.phone = 'Must start with 07.';
+    if (fieldDefs.length === 0) {
+      notify.warning(
+        'No measurement fields',
+        'Add customer measurement names in Adds → Customer Measurement first.',
+      );
+      return false;
+    }
+    fieldDefs.forEach(({ name: fieldName }) => {
+      const val = String(measurements[fieldName] ?? '').trim();
+      if (!val) e[`m_${fieldName}`] = `${fieldName} is required.`;
+      else if (Number.isNaN(Number(val))) e[`m_${fieldName}`] = `${fieldName} must be a number.`;
+    });
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      const payload = { ...measurements };
+      const customer = await onSave(name.trim(), phone.trim(), payload);
+      notify.success('Customer saved', `Token: ${customer.tokenNumber}`);
+      onClose();
+    } catch (err) {
+      notify.error('Could not save customer', err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Customer" subtitle="Order customer with measurements" size="xl">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          <Input label="Customer Name *" icon={User} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
+          <Input
+            label="Phone Number *"
+            icon={Phone}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            error={errors.phone}
+            placeholder="e.g. 0712345678"
+          />
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-semibold text-ink">Measurements *</p>
+          {fieldDefs.length === 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-ink-secondary">
+              No measurement fields yet.{' '}
+              <Link to="/adds" className="font-semibold text-navy underline" onClick={onClose}>
+                Open Adds → Customer Measurement
+              </Link>
+            </div>
+          ) : (
+            <div className="grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
+              {fieldDefs.map(({ id, name: fieldName }) => (
+                <Input
+                  key={id}
+                  label={fieldName}
+                  value={measurements[fieldName] || ''}
+                  onChange={(e) => {
+                    setMeasurements((prev) => ({ ...prev, [fieldName]: e.target.value }));
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next[`m_${fieldName}`];
+                      return next;
+                    });
+                  }}
+                  error={errors[`m_${fieldName}`]}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-6 flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={handleSave} disabled={saving || fieldDefs.length === 0}>
+          {saving ? 'Saving…' : 'Save Customer'}
         </Button>
       </div>
     </Modal>

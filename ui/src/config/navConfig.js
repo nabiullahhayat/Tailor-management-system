@@ -18,7 +18,6 @@ export const MENU_GROUPS = [
     id: 'customers',
     label: 'CUSTOMERS',
     items: [
-      { id: 'addCustomer', label: 'Add Customer', icon: 'UserPlus', path: '/customers/new' },
       { id: 'customers', label: 'Customers', icon: 'Users', path: '/customers' },
     ],
   },

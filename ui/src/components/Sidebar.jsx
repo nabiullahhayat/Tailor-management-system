@@ -13,13 +13,13 @@ function NavItem({ item, collapsed, onNavigate, isActive }) {
       to={item.path}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition ${
         isActive
           ? 'bg-accent/20 text-white shadow-sm ring-1 ring-accent/30'
           : 'text-white/70 hover:bg-white/10 hover:text-white'
       } ${collapsed ? 'justify-center px-2' : ''}`}
     >
-      <Icon size={18} className={`shrink-0 ${isActive ? 'text-secondary' : ''}`} />
+      <Icon size={20} className={`shrink-0 ${isActive ? 'text-secondary' : ''}`} />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </NavLink>
   );
@@ -31,7 +31,7 @@ export default function Sidebar({ mobileOpen, onClose, collapsed, onToggleCollap
   const activeItem = getActiveNavItem(pathname);
 
   const content = (
-    <div className="flex h-full flex-col bg-navy">
+    <div className="flex h-full w-full min-w-0 flex-col bg-navy">
       <div className={`shrink-0 border-b border-white/10 ${collapsed ? 'px-3 py-4' : 'px-4 py-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-secondary text-lg font-extrabold text-white shadow-lg">
@@ -88,22 +88,13 @@ export default function Sidebar({ mobileOpen, onClose, collapsed, onToggleCollap
           </div>
         ))}
       </nav>
-
-      {!collapsed && (
-        <div className="shrink-0 border-t border-white/10 px-4 py-3">
-          <div className="rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10">
-            <p className="text-[11px] font-semibold text-white/70">Local mode</p>
-            <p className="text-[10px] text-white/40">Saved in browser storage</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 
   return (
     <>
       <aside
-        className={`sidebar-shell hidden shrink-0 transition-all duration-200 lg:flex ${
+        className={`sidebar-shell hidden transition-all duration-200 lg:flex ${
           collapsed ? 'w-[72px]' : 'w-[17.5rem]'
         }`}
       >

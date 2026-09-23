@@ -90,32 +90,44 @@ function paymentStatusFor(total, paid) {
   return 'Pending';
 }
 
-/** Preview new order checkout (cash pays old debt first, then wallet + cash on this order). */
+/**
+ * Preview new order checkout:
+ * 1) Wallet + cash pay this order (up to order total)
+ * 2) Leftover cash reduces old order debt
+ * 3) Any cash still left → prepaid credit
+ */
 export function previewOrderCheckout(customer, orderTotal, cashPaid, walletUsed, orders, customers) {
   const total = Math.max(0, Number(orderTotal) || 0);
-  let cash = Math.max(0, parseFloat(cashPaid) || 0);
-  let wallet = Math.max(0, parseFloat(walletUsed) || 0);
+  const cash = Math.max(0, parseFloat(cashPaid) || 0);
   const prepaid = Number(customer?.creditBalance || 0);
-  wallet = Math.min(wallet, prepaid);
-
-  const customerOrders = getOrdersForCustomer(customer.id, customer.name, orders, customers);
-  const { unapplied: cashLeft } = allocateOrderDebtPayment(customerOrders, cash);
-  const cashAppliedToDebt = cash - cashLeft;
-  cash = cashLeft;
+  const manualWallet = parseFloat(walletUsed);
+  let wallet =
+    walletUsed !== undefined && walletUsed !== '' && !Number.isNaN(manualWallet)
+      ? Math.min(Math.max(0, manualWallet), prepaid)
+      : Math.min(prepaid, total);
 
   const towardOrder = wallet + cash;
   const orderPaid = Math.min(total, towardOrder);
-  const surplus = towardOrder - orderPaid;
-  const walletDelta = -wallet + surplus;
+  const walletUsedOnOrder = Math.min(wallet, orderPaid);
+  const cashUsedOnOrder = orderPaid - walletUsedOnOrder;
+
+  const cashForDebt = cash - cashUsedOnOrder;
+  const customerOrders = getOrdersForCustomer(customer.id, customer.name, orders, customers);
+  const debtResult = allocateOrderDebtPayment(customerOrders, cashForDebt);
+  const cashAppliedToDebt = debtResult.applied;
+  const surplusToPrepaid = debtResult.unapplied;
+  const walletDelta = -walletUsedOnOrder + surplusToPrepaid;
 
   return {
+    cashUsedOnOrder,
     cashAppliedToDebt,
-    walletUsed: wallet,
+    walletUsed: walletUsedOnOrder,
     orderPaidAmount: orderPaid,
     orderRemaining: total - orderPaid,
     paymentStatus: paymentStatusFor(total, orderPaid),
-    surplusToPrepaid: surplus,
+    surplusToPrepaid,
     newPrepaidCredit: Math.max(0, prepaid + walletDelta),
+    debtAllocations: debtResult.allocations,
   };
 }
 
@@ -130,17 +142,12 @@ export async function executeOrderCheckout({
   adjustWallet,
 }) {
   const preview = previewOrderCheckout(customer, orderTotal, cashPaid, walletUsed, orders, customers);
-  const cash = Math.max(0, parseFloat(cashPaid) || 0);
 
-  if (cash > 0) {
-    const customerOrders = getOrdersForCustomer(customer.id, customer.name, orders, customers);
-    const { allocations } = allocateOrderDebtPayment(customerOrders, cash);
-    for (const { order, newPaidAmount, markPaid } of allocations) {
-      await applyOrderPayment(order.id, {
-        paidAmount: newPaidAmount,
-        paymentStatus: markPaid ? 'Paid' : 'Partial',
-      });
-    }
+  for (const { order, newPaidAmount, markPaid } of preview.debtAllocations || []) {
+    await applyOrderPayment(order.id, {
+      paidAmount: newPaidAmount,
+      paymentStatus: markPaid ? 'Paid' : 'Partial',
+    });
   }
 
   const walletDelta = -preview.walletUsed + preview.surplusToPrepaid;

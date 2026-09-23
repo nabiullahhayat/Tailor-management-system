@@ -3,6 +3,7 @@ import Modal from '../ui/Modal.jsx';
 import Input from '../ui/Input.jsx';
 import Button from '../ui/Button.jsx';
 import { notify } from '../../utils/toast.js';
+import { getLineItemAmount, parseOrderLineItems } from '../../utils/orderDisplay.js';
 
 export default function EditOrderModal({ open, order, onClose, onSave }) {
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -10,6 +11,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
   const [quantity, setQuantity] = useState('');
   const [color, setColor] = useState('');
   const [notes, setNotes] = useState('');
+  const [customerFabricMeters, setCustomerFabricMeters] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -19,12 +21,16 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
     setQuantity(String(order.quantity ?? '1'));
     setColor(order.color || '');
     setNotes(order.notes || '');
+    setCustomerFabricMeters(String(order.customerFabricMeters ?? ''));
   }, [order, open]);
 
   if (!order) return null;
 
+  const lineItems = parseOrderLineItems(order);
   const totalAmount =
-    (parseFloat(pricePerOne) || 0) * (parseFloat(quantity) || 0);
+    lineItems.length > 0
+      ? lineItems.reduce((s, l) => s + getLineItemAmount(l), 0)
+      : (parseFloat(pricePerOne) || 0) * (parseFloat(quantity) || 0);
 
   const handleSave = async () => {
     if (!deliveryDate.trim()) {
@@ -48,6 +54,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
         totalAmount,
         color,
         notes,
+        customerFabricMeters,
       });
       notify.success('Order updated', order.tokenNumber);
       onClose();
@@ -61,9 +68,42 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
   return (
     <Modal open={open} onClose={onClose} title="Edit Order" subtitle={order.tokenNumber} size="md">
       <div className="space-y-3">
-        <p className="text-sm text-ink-muted">
-          Customer: <span className="font-semibold text-ink">{order.customerName}</span>
-        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl bg-background px-3 py-2 text-sm">
+            <p className="text-xs text-ink-muted">Customer</p>
+            <p className="font-semibold text-ink">{order.customerName}</p>
+          </div>
+          <div className="rounded-xl bg-background px-3 py-2 text-sm">
+            <p className="text-xs text-ink-muted">Employee</p>
+            <p className="font-semibold text-ink">{order.employeeName || '—'}</p>
+          </div>
+        </div>
+        {lineItems.length > 0 && (
+          <div className="rounded-xl bg-background px-3 py-2 text-sm">
+            <p className="mb-1 text-xs font-semibold text-ink-muted">Order types</p>
+            <ul className="space-y-1">
+              {lineItems.map((line, i) => {
+                const qty = Number(line.quantity ?? 1) || 1;
+                const unit = Number(line.price || 0);
+                return (
+                  <li key={line.orderTypeId || i} className="flex justify-between gap-2">
+                    <span>
+                      {line.orderType}
+                      {qty > 1 ? ` (${qty} × ₹${unit.toLocaleString()})` : ''}
+                    </span>
+                    <span className="font-semibold">₹{getLineItemAmount(line).toLocaleString()}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        <Input
+          label="Customer fabric given (meters)"
+          type="number"
+          value={customerFabricMeters}
+          onChange={(e) => setCustomerFabricMeters(e.target.value)}
+        />
         <Input label="Delivery Date *" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
         <Input label="Color" value={color} onChange={(e) => setColor(e.target.value)} />
         <div className="grid gap-3 sm:grid-cols-2">

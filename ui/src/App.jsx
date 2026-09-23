@@ -4,7 +4,6 @@ import OverviewPage from './pages/OverviewPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AddOrderPage from './pages/AddOrderPage.jsx';
 import CustomersPage from './pages/CustomersPage.jsx';
-import AddCustomerPage from './pages/AddCustomerPage.jsx';
 import AddsPage from './pages/AddsPage.jsx';
 import { FabricSalePage, MachinerySalePage } from './pages/SalesFormPages.jsx';
 import SalesHistoryPage from './pages/SalesHistoryPage.jsx';
@@ -34,7 +33,6 @@ export default function App() {
                     <Route path="orders" element={<OrdersPage />} />
                     <Route path="orders/new" element={<AddOrderPage />} />
                     <Route path="customers" element={<CustomersPage />} />
-                    <Route path="customers/new" element={<AddCustomerPage />} />
                     <Route path="adds" element={<AddsPage />} />
                     <Route path="sales/fabric" element={<FabricSalePage />} />
                     <Route path="sales/machinery" element={<MachinerySalePage />} />

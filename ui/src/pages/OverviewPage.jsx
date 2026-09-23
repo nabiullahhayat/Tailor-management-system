@@ -147,7 +147,7 @@ export default function OverviewPage() {
         actions={
           <>
             <Link to="/orders/new"><Button>New Order</Button></Link>
-            <Link to="/customers/new"><Button variant="outline">Add Customer</Button></Link>
+            <Link to="/customers"><Button variant="outline">Customers</Button></Link>
           </>
         }
       >
@@ -342,7 +342,15 @@ export default function OverviewPage() {
         open={!!liveSelectedOrder}
         order={liveSelectedOrder}
         customerBalance={selectedCustomerBalance}
+        customerPhone={
+          liveSelectedOrder?.customerId
+            ? customers.find((c) => c.id === liveSelectedOrder.customerId)?.phone
+            : customers.find(
+                (c) => c.name.toLowerCase() === (liveSelectedOrder?.customerName || '').toLowerCase(),
+              )?.phone
+        }
         onClose={() => setSelectedOrder(null)}
+        onPaymentComplete={() => setSelectedOrder(null)}
         onStatusChange={async (id, status) => {
           const updated = await updateOrderStatus(id, status);
           setSelectedOrder((prev) => (prev?.id === id ? { ...prev, ...updated, status: updated?.status ?? status } : prev));
