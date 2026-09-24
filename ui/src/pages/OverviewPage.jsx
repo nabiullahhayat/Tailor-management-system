@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   Area,
@@ -46,6 +47,7 @@ import {
   getSalesByType,
 } from '../utils/chartData.js';
 import { buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
+import { toLocalDateKey } from '../utils/orderDelivery.js';
 
 function resolveCustomerId(order, customers) {
   if (order.customerId) return order.customerId;
@@ -61,6 +63,7 @@ const CHART_TOOLTIP_STYLE = {
 };
 
 export default function OverviewPage() {
+  const { t } = useTranslation();
   const { customers, refreshCustomers } = useCustomers();
   const { orders, updateOrderStatus, recordOrderPayment, refreshOrders } = useOrders();
   const { sales } = useSales();
@@ -105,30 +108,54 @@ export default function OverviewPage() {
   }, [fetchDashboard, orders.length, customers.length, sales.length]);
 
   const monthlyData = useMemo(
-    () => getMonthlyRevenueExpense({ income, expenses, sales }),
-    [income, expenses, sales],
+    () => getMonthlyRevenueExpense({ income, expenses, sales }).map((row) => ({
+      ...row,
+      month: t(`months.${row.month}`, { defaultValue: row.month }),
+    })),
+    [income, expenses, sales, t],
   );
-  const statusData = useMemo(() => getOrdersByStatus(orders), [orders]);
-  const expenseChart = useMemo(() => getExpensesByCategory(expenses), [expenses]);
-  const salesChart = useMemo(() => getSalesByType(sales), [sales]);
+  const statusData = useMemo(
+    () => getOrdersByStatus(orders).map((row) => ({
+      ...row,
+      name: t(`status.${row.name}`, { defaultValue: row.name }),
+    })),
+    [orders, t],
+  );
+  const expenseChart = useMemo(
+    () => getExpensesByCategory(expenses).map((row) => ({
+      ...row,
+      name: t(`filters.${row.name}`, { defaultValue: row.name }),
+    })),
+    [expenses, t],
+  );
+  const salesChart = useMemo(
+    () => getSalesByType(sales).map((row) => ({
+      ...row,
+      name: t(`filters.${row.name}`, { defaultValue: row.name }),
+    })),
+    [sales, t],
+  );
 
   const recentOrders = dashboardData?.recent?.orders || orders.slice(0, 8);
   const pendingOrders = orders.filter((o) => ['Finding', 'Ready'].includes(o.status));
   const overdueOrders = orders.filter((o) => {
     if (!o.deliveryDate || o.status === 'Delivered') return false;
-    return new Date(o.deliveryDate) < new Date();
+    const deliveryKey = toLocalDateKey(o.deliveryDate);
+    const todayKey = toLocalDateKey(new Date());
+    if (!deliveryKey || !todayKey) return false;
+    return deliveryKey < todayKey;
   });
 
   const tableColumns = [
-    { key: 'token', label: 'Order #', render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
-    { key: 'customer', label: 'Customer', render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
-    { key: 'type', label: 'Type', render: (r) => r.orderType },
-    { key: 'amount', label: 'Amount', render: (r) => formatCurrency(r.totalAmount) },
-    { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'payment', label: 'Payment', render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
+    { key: 'token', label: t('dashboard.orderHash'), render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
+    { key: 'customer', label: t('common.customer'), render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
+    { key: 'type', label: t('common.type'), render: (r) => r.orderType },
+    { key: 'amount', label: t('common.amount'), render: (r) => formatCurrency(r.totalAmount) },
+    { key: 'status', label: t('common.status'), render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'payment', label: t('common.payment'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       className: 'w-28',
       render: (r) => (
         <TableRowActions
@@ -141,44 +168,44 @@ export default function OverviewPage() {
   return (
     <>
       <PageShell
-        title="Business Dashboard"
-        subtitle="Real-time overview of orders, revenue, and shop performance"
-        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Dashboard' }]}
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
+        breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('nav.items.overview') }]}
         actions={
           <>
-            <Link to="/orders/new"><Button>New Order</Button></Link>
-            <Link to="/customers/new"><Button variant="outline">Add Customer</Button></Link>
+            <Link to="/orders/new"><Button>{t('common.newOrder')}</Button></Link>
+            <Link to="/customers"><Button variant="outline">{t('nav.items.customers')}</Button></Link>
           </>
         }
       >
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
-            title="Today's Orders"
+            title={t('dashboard.todayOrders')}
             value={String(dashboardData?.today?.orders ?? 0)}
-            subtitle="Orders booked today"
+            subtitle={t('dashboard.todayOrdersHint')}
             icon={Receipt}
             accent="info"
-            trendLabel="+12% vs yesterday"
+            trendLabel={t('detail.vsYesterday')}
           />
           <KpiCard
-            title="Today's Income"
+            title={t('dashboard.todayIncome')}
             value={formatCurrency(dashboardData?.today?.income ?? 0)}
-            subtitle="Collections received"
+            subtitle={t('dashboard.todayIncomeHint')}
             icon={Banknote}
             accent="success"
-            trendLabel="On track"
+            trendLabel={t('detail.onTrack')}
           />
           <KpiCard
-            title="Pending Orders"
+            title={t('dashboard.pendingOrders')}
             value={String(dashboardData?.overview?.pendingOrders ?? pendingOrders.length)}
-            subtitle="Finding + Ready"
+            subtitle={t('dashboard.pendingHint')}
             icon={Clock}
             accent="warning"
           />
           <KpiCard
-            title="Total Customers"
+            title={t('dashboard.totalCustomers')}
             value={String(dashboardData?.overview?.totalCustomers ?? customers.length)}
-            subtitle="Active customer base"
+            subtitle={t('dashboard.customersHint')}
             icon={Users}
             accent="navy"
           />
@@ -186,7 +213,7 @@ export default function OverviewPage() {
 
         <section className="mb-8 grid gap-6 xl:grid-cols-3">
           <div className="xl:col-span-2">
-            <ChartCard title="Revenue vs Expense" subtitle="Last 6 months performance">
+            <ChartCard title={t('dashboard.revenue')} subtitle={t('dashboard.last6')}>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={monthlyData}>
@@ -205,15 +232,15 @@ export default function OverviewPage() {
                     <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${v / 1000}k`} />
                     <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v) => formatCurrency(v)} />
                     <Legend />
-                    <Area type="monotone" dataKey="income" stroke="#00a76f" fill="url(#incomeGrad)" strokeWidth={2} name="Income" />
-                    <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="url(#expenseGrad)" strokeWidth={2} name="Expense" />
+                    <Area type="monotone" dataKey="income" stroke="#00a76f" fill="url(#incomeGrad)" strokeWidth={2} name={t('dashboard.income')} />
+                    <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="url(#expenseGrad)" strokeWidth={2} name={t('dashboard.expense')} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </ChartCard>
           </div>
 
-          <ChartCard title="Orders by Status" subtitle="Production pipeline">
+          <ChartCard title={t('dashboard.ordersStatus')} subtitle={t('dashboard.pipeline')}>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -231,7 +258,7 @@ export default function OverviewPage() {
         </section>
 
         <section className="mb-8 grid gap-6 lg:grid-cols-2">
-          <ChartCard title="Sales by Type" subtitle="Order volume breakdown">
+          <ChartCard title={t('dashboard.salesType')} subtitle={t('dashboard.volume')}>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={salesChart}>
@@ -249,7 +276,7 @@ export default function OverviewPage() {
             </div>
           </ChartCard>
 
-          <ChartCard title="Expenses by Category" subtitle="Spend distribution">
+          <ChartCard title={t('dashboard.expensesCat')} subtitle={t('dashboard.spend')}>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={expenseChart} layout="vertical">
@@ -272,36 +299,36 @@ export default function OverviewPage() {
           <div className="panel p-5 lg:col-span-1">
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="text-amber-500" size={18} />
-              <h3 className="font-bold text-ink">Attention Required</h3>
+              <h3 className="font-bold text-ink">{t('dashboard.attention')}</h3>
             </div>
             <div className="space-y-3">
               <div className="rounded-lg bg-red-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-danger">Overdue Deliveries</p>
+                <p className="text-xs font-semibold uppercase text-danger">{t('dashboard.overdue')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">{overdueOrders.length}</p>
               </div>
               <div className="rounded-lg bg-amber-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-amber-700">Pending Payments</p>
+                <p className="text-xs font-semibold uppercase text-amber-700">{t('dashboard.pendingPay')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">
                   {formatCurrency(dashboardData?.payments?.total ?? 0)}
                 </p>
               </div>
               <div className="rounded-lg bg-blue-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-blue-700">Low Stock Alerts</p>
+                <p className="text-xs font-semibold uppercase text-blue-700">{t('dashboard.lowStock')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">
                   {dashboardData?.stockAlerts?.totalAlerts ?? 0}
                 </p>
               </div>
             </div>
             <Link to="/stock" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent">
-              View stock <ArrowRight size={14} />
+              {t('dashboard.viewStock')} <ArrowRight size={14} />
             </Link>
           </div>
 
           <div className="panel p-5 lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-ink">Monthly Profit</h3>
-                <p className="text-sm text-ink-muted">Income minus expenses this month</p>
+                <h3 className="font-bold text-ink">{t('dashboard.monthlyProfit')}</h3>
+                <p className="text-sm text-ink-muted">{t('dashboard.profitHint')}</p>
               </div>
               <TrendingUp className="text-success" size={22} />
             </div>
@@ -310,11 +337,11 @@ export default function OverviewPage() {
             </p>
             <div className="mt-6 grid grid-cols-2 gap-4">
               <div className="rounded-lg bg-background px-4 py-3">
-                <p className="text-xs text-ink-muted">Monthly Income</p>
+                <p className="text-xs text-ink-muted">{t('dashboard.monthlyIncome')}</p>
                 <p className="text-lg font-bold text-success">{formatCurrency(dashboardData?.monthly?.income ?? 0)}</p>
               </div>
               <div className="rounded-lg bg-background px-4 py-3">
-                <p className="text-xs text-ink-muted">Monthly Expense</p>
+                <p className="text-xs text-ink-muted">{t('dashboard.monthlyExpense')}</p>
                 <p className="text-lg font-bold text-danger">{formatCurrency(dashboardData?.monthly?.expenses ?? 0)}</p>
               </div>
             </div>
@@ -324,16 +351,16 @@ export default function OverviewPage() {
         <section>
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-ink">Recent Orders</h3>
-              <p className="text-sm text-ink-muted">Click a row to open order details</p>
+              <h3 className="text-lg font-bold text-ink">{t('dashboard.recent')}</h3>
+              <p className="text-sm text-ink-muted">{t('dashboard.clickRow')}</p>
             </div>
-            <Link to="/orders" className="text-sm font-semibold text-accent hover:underline">View all orders</Link>
+            <Link to="/orders" className="text-sm font-semibold text-accent hover:underline">{t('dashboard.viewAll')}</Link>
           </div>
           <DataTable
             columns={tableColumns}
             rows={recentOrders}
             onRowClick={(row) => setSelectedOrder(orders.find((o) => o.id === row.id) || row)}
-            emptyMessage="No orders yet. Create your first order to get started."
+            emptyMessage={t('dashboard.emptyOrders')}
           />
         </section>
       </PageShell>
@@ -342,7 +369,15 @@ export default function OverviewPage() {
         open={!!liveSelectedOrder}
         order={liveSelectedOrder}
         customerBalance={selectedCustomerBalance}
+        customerPhone={
+          liveSelectedOrder?.customerId
+            ? customers.find((c) => c.id === liveSelectedOrder.customerId)?.phone
+            : customers.find(
+                (c) => c.name.toLowerCase() === (liveSelectedOrder?.customerName || '').toLowerCase(),
+              )?.phone
+        }
         onClose={() => setSelectedOrder(null)}
+        onPaymentComplete={() => setSelectedOrder(null)}
         onStatusChange={async (id, status) => {
           const updated = await updateOrderStatus(id, status);
           setSelectedOrder((prev) => (prev?.id === id ? { ...prev, ...updated, status: updated?.status ?? status } : prev));

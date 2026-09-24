@@ -50,6 +50,10 @@ export function StockProvider({ children }) {
         supplier: data.supplier || '',
         supplierContact: data.supplierContact || '',
         notes: data.notes || '',
+        warningQuantity:
+          data.warningQuantity !== undefined && data.warningQuantity !== ''
+            ? parseFloat(data.warningQuantity)
+            : undefined,
       });
       setFabrics(prev => [newFabric, ...prev]);
       return newFabric;
@@ -68,6 +72,10 @@ export function StockProvider({ children }) {
         supplier: data.supplier || '',
         supplierContact: data.supplierContact || '',
         notes: data.notes || '',
+        warningQuantity:
+          data.warningQuantity !== undefined && data.warningQuantity !== ''
+            ? parseFloat(data.warningQuantity)
+            : undefined,
       });
       setMachinery(prev => [newMachinery, ...prev]);
       return newMachinery;
@@ -151,6 +159,10 @@ export function StockProvider({ children }) {
         supplier: updates.supplier || '',
         supplierContact: updates.supplierContact || '',
         notes: updates.notes || '',
+        warningQuantity:
+          updates.warningQuantity !== undefined && updates.warningQuantity !== ''
+            ? parseFloat(updates.warningQuantity)
+            : undefined,
       };
       
       const updatedFabric = await stockService.fabric.update(id, updateData);
@@ -173,6 +185,10 @@ export function StockProvider({ children }) {
         supplier: updates.supplier || '',
         supplierContact: updates.supplierContact || '',
         notes: updates.notes || '',
+        warningQuantity:
+          updates.warningQuantity !== undefined && updates.warningQuantity !== ''
+            ? parseFloat(updates.warningQuantity)
+            : undefined,
       };
       
       const updatedMachinery = await stockService.machinery.update(id, updateData);

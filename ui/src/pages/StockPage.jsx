@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import DataTable from '../components/desktop/DataTable.jsx';
 import Input from '../components/ui/Input.jsx';
@@ -9,8 +10,10 @@ import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { notify } from '../utils/toast.js';
 import { formatCurrency } from '../utils/chartData.js';
 import { useStock } from '../context/StockContext.jsx';
+import { getWarningQuantity, isStockAtOrBelowWarning } from '../utils/stockWarnings.js';
 
 export default function StockPage() {
+  const { t } = useTranslation();
   const {
     fabrics,
     machinery,
@@ -31,12 +34,12 @@ export default function StockPage() {
   const [form, setForm] = useState({});
 
   const openCreate = (category) => {
-    setForm({ name: '', price: '', stock: '', supplier: '', quantity: '', purchasePrice: '' });
+    setForm({ name: '', price: '', stock: '', supplier: '', warningQuantity: '', quantity: '', purchasePrice: '' });
     setModal({ type: 'create', category });
   };
 
   const openPurchase = (category) => {
-    setForm({ itemId: '', quantity: '', purchasePrice: '', supplier: '', date: new Date().toISOString().split('T')[0] });
+    setForm({ itemId: '', quantity: '', purchasePrice: '', date: new Date().toISOString().split('T')[0] });
     setModal({ type: 'purchase', category });
   };
 
@@ -47,9 +50,13 @@ export default function StockPage() {
       price: String(category === 'fabric' ? item.pricePerMeter : item.unitPrice),
       stock: String(item.stock),
       supplier: item.supplier || '',
+      warningQuantity: item.warningQuantity != null ? String(item.warningQuantity) : '',
     });
     setModal({ type: 'edit', category });
   };
+
+  const purchaseItems = modal?.category === 'fabric' ? fabrics : machinery;
+  const selectedPurchaseItem = purchaseItems.find((i) => i.id === form.itemId);
 
   const handleSave = async () => {
     if (modal.type === 'create') {
@@ -59,6 +66,7 @@ export default function StockPage() {
           pricePerMeter: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       } else {
         await createMachineryItem({
@@ -66,13 +74,13 @@ export default function StockPage() {
           unitPrice: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       }
     } else if (modal.type === 'purchase') {
       const entry = {
         quantity: form.quantity,
         purchasePrice: form.purchasePrice,
-        supplier: form.supplier,
         date: form.date,
         totalCost: Number(form.quantity) * Number(form.purchasePrice),
       };
@@ -90,6 +98,7 @@ export default function StockPage() {
           pricePerMeter: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       } else {
         await updateMachinery(form.id, {
@@ -97,6 +106,7 @@ export default function StockPage() {
           unitPrice: form.price,
           stock: form.stock,
           supplier: form.supplier,
+          warningQuantity: form.warningQuantity,
         });
       }
     }
@@ -113,19 +123,43 @@ export default function StockPage() {
   );
 
   const fabricColumns = [
-    { key: 'name', label: 'Fabric', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
-    { key: 'price', label: 'Price/Meter', render: (r) => formatCurrency(r.pricePerMeter) },
-    { key: 'stock', label: 'Stock (m)', render: (r) => <span className={r.stock < 10 ? 'font-bold text-danger' : 'font-semibold'}>{r.stock}</span> },
-    { key: 'supplier', label: 'Supplier', render: (r) => r.supplier || '—' },
-    { key: 'actions', label: 'Actions', className: 'w-28', render: (r) => stockActions('fabric', r) },
+    { key: 'name', label: t('stock.fabric'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
+    { key: 'price', label: t('stock.priceMeter'), render: (r) => formatCurrency(r.pricePerMeter) },
+    {
+      key: 'stock',
+      label: t('stock.stockM'),
+      render: (r) => (
+        <span className={isStockAtOrBelowWarning(r, 'fabric') ? 'font-bold text-danger' : 'font-semibold'}>
+          {r.stock}
+        </span>
+      ),
+    },
+    {
+      key: 'warningQuantity',
+      label: t('stock.warningAt'),
+      render: (r) => getWarningQuantity(r, 'fabric'),
+    },
+    { key: 'actions', label: t('common.actions'), className: 'w-28', render: (r) => stockActions('fabric', r) },
   ];
 
   const machineryColumns = [
-    { key: 'name', label: 'Machine', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
-    { key: 'price', label: 'Unit Price', render: (r) => formatCurrency(r.unitPrice) },
-    { key: 'stock', label: 'Stock', render: (r) => <span className={r.stock < 3 ? 'font-bold text-danger' : 'font-semibold'}>{r.stock}</span> },
-    { key: 'supplier', label: 'Supplier', render: (r) => r.supplier || '—' },
-    { key: 'actions', label: 'Actions', className: 'w-28', render: (r) => stockActions('machinery', r) },
+    { key: 'name', label: t('stock.machine'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
+    { key: 'price', label: t('stock.unitPrice'), render: (r) => formatCurrency(r.unitPrice) },
+    {
+      key: 'stock',
+      label: t('stock.stock'),
+      render: (r) => (
+        <span className={isStockAtOrBelowWarning(r, 'machinery') ? 'font-bold text-danger' : 'font-semibold'}>
+          {r.stock}
+        </span>
+      ),
+    },
+    {
+      key: 'warningQuantity',
+      label: t('stock.warningAt'),
+      render: (r) => getWarningQuantity(r, 'machinery'),
+    },
+    { key: 'actions', label: t('common.actions'), className: 'w-28', render: (r) => stockActions('machinery', r) },
   ];
 
   const showFabric = filter !== 'machinery';
@@ -136,12 +170,12 @@ export default function StockPage() {
 
   return (
     <PageShell
-      title="Stock Management"
-      subtitle="Fabric and machinery inventory with purchase tracking"
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Stock' }]}
+      title={t('stock.title')}
+      subtitle={t('stock.subtitle')}
+      breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('stock.title') }]}
     >
         <div className="mb-4 flex flex-wrap gap-2">
-          {[['all', 'All Stock'], ['fabric', 'Fabric'], ['machinery', 'Machinery']].map(([key, label]) => (
+          {[['all', t('stock.all')], ['fabric', t('stock.fabric')], ['machinery', t('stock.machinery')]].map(([key, label]) => (
             <button key={key} type="button" onClick={() => setFilter(key)} className={`rounded-xl px-4 py-2 text-sm font-bold ${filter === key ? 'bg-navy text-white' : 'bg-surface border border-black/10 text-ink-muted'}`}>
               {label}
             </button>
@@ -150,28 +184,28 @@ export default function StockPage() {
 
         {filter === 'fabric' && (
           <div className="mb-4 flex flex-wrap gap-2">
-            <Button onClick={() => openCreate('fabric')}>New Fabric</Button>
-            <Button variant="outline" onClick={() => openPurchase('fabric')}>Buy Fabric</Button>
+            <Button onClick={() => openCreate('fabric')}>{t('stock.newFabric')}</Button>
+            <Button variant="outline" onClick={() => openPurchase('fabric')}>{t('stock.buyFabric')}</Button>
           </div>
         )}
         {filter === 'machinery' && (
           <div className="mb-4 flex flex-wrap gap-2">
-            <Button onClick={() => openCreate('machinery')}>New Machine</Button>
-            <Button variant="outline" onClick={() => openPurchase('machinery')}>Buy Machine</Button>
+            <Button onClick={() => openCreate('machinery')}>{t('stock.newMachine')}</Button>
+            <Button variant="outline" onClick={() => openPurchase('machinery')}>{t('stock.buyMachine')}</Button>
           </div>
         )}
 
         {showFabric && (
           <section className="mb-8">
-            <h3 className="mb-3 text-lg font-bold">Fabric Stock</h3>
-            <DataTable columns={fabricColumns} rows={fabrics} emptyMessage="No fabric items in inventory." />
+            <h3 className="mb-3 text-lg font-bold">{t('stock.fabricStock')}</h3>
+            <DataTable columns={fabricColumns} rows={fabrics} emptyMessage={t('stock.emptyFabric')} />
           </section>
         )}
 
         {showMachinery && (
           <section>
-            <h3 className="mb-3 text-lg font-bold">Machinery Stock</h3>
-            <DataTable columns={machineryColumns} rows={machinery} emptyMessage="No machinery items in inventory." />
+            <h3 className="mb-3 text-lg font-bold">{t('stock.machineryStock')}</h3>
+            <DataTable columns={machineryColumns} rows={machinery} emptyMessage={t('stock.emptyMachine')} />
           </section>
         )}
 
@@ -179,23 +213,25 @@ export default function StockPage() {
         open={!!viewTarget}
         onClose={() => setViewTarget(null)}
         title={viewItem?.name}
-        subtitle={isFabricView ? 'Fabric item' : 'Machinery item'}
+        subtitle={isFabricView ? t('stockExtra.fabricItem') : t('stockExtra.machineItem')}
       >
         {viewItem && (
           <div className="space-y-2 text-sm">
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">{isFabricView ? 'Price per meter' : 'Unit price'}</span>
+              <span className="text-ink-muted">{isFabricView ? t('stockExtra.pricePerMeter') : t('stock.unitPrice')}</span>
               <span className="font-semibold">
                 {formatCurrency(isFabricView ? viewItem.pricePerMeter : viewItem.unitPrice)}
               </span>
             </div>
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">Stock</span>
+              <span className="text-ink-muted">{t('stock.stock')}</span>
               <span className="font-semibold">{viewItem.stock}</span>
             </div>
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">Supplier</span>
-              <span className="font-semibold">{viewItem.supplier || '—'}</span>
+              <span className="text-ink-muted">{t('stock.warningQty')}</span>
+              <span className="font-semibold">
+                {getWarningQuantity(viewItem, isFabricView ? 'fabric' : 'machinery')}
+              </span>
             </div>
           </div>
         )}
@@ -206,34 +242,51 @@ export default function StockPage() {
         onClose={() => setModal(null)}
         title={
           modal?.type === 'create'
-            ? `New ${modal.category === 'fabric' ? 'Fabric' : 'Machine'}`
+            ? (modal.category === 'fabric' ? t('stock.newFabric') : t('stock.newMachine'))
             : modal?.type === 'purchase'
-              ? `Buy ${modal.category === 'fabric' ? 'Fabric' : 'Machine'}`
-              : 'Edit Item'
+              ? (modal.category === 'fabric' ? t('stock.buyFabric') : t('stock.buyMachine'))
+              : t('stockExtra.editItem')
         }
       >
         {modal?.type === 'purchase' ? (
           <>
-            <select value={form.itemId} onChange={(e) => setForm((p) => ({ ...p, itemId: e.target.value }))} className="mb-4 w-full rounded-xl border px-3 py-2.5 text-sm">
-              <option value="">Select item…</option>
-              {(modal.category === 'fabric' ? fabrics : machinery).map((item) => (
+            <select value={form.itemId} onChange={(e) => setForm((p) => ({ ...p, itemId: e.target.value }))} className="mb-2 w-full rounded-xl border px-3 py-2.5 text-sm">
+              <option value="">{t('stock.selectItem')}</option>
+              {purchaseItems.map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
-            <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} />
-            <Input label="Purchase Price" type="number" value={form.purchasePrice} onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))} />
-            <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
-            <Input label="Date" type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+            {selectedPurchaseItem && (
+              <div className="mb-4 rounded-xl border border-primary-soft bg-background px-3 py-2 text-sm">
+                <span className="text-ink-muted">{t('stock.currentStock')}: </span>
+                <span className="font-bold text-ink">
+                  {selectedPurchaseItem.stock}
+                  {modal.category === 'fabric' ? ` ${t('stockExtra.meters')}` : ` ${t('stockExtra.units')}`}
+                </span>
+              </div>
+            )}
+            <Input label={t('common.quantity')} type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} />
+            <Input label={t('stock.purchasePrice')} type="number" value={form.purchasePrice} onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))} />
+            <Input label={t('common.date')} type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
           </>
         ) : (
           <>
-            <Input label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-            <Input label={modal?.category === 'fabric' ? 'Price per Meter' : 'Unit Price'} type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
-            <Input label="Stock" type="number" value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))} />
-            <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
+            <Input label={t('common.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+            <Input label={modal?.category === 'fabric' ? t('stock.priceMeter') : t('stock.unitPrice')} type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
+            <Input label={t('stock.stock')} type="number" value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))} />
+            <Input
+              label={modal?.category === 'fabric' ? t('stockExtra.warningMeters') : t('stockExtra.warningUnits')}
+              type="number"
+              value={form.warningQuantity}
+              onChange={(e) => setForm((p) => ({ ...p, warningQuantity: e.target.value }))}
+              placeholder={t('stockExtra.warningPlaceholder')}
+            />
+            {modal?.type === 'edit' && (
+              <Input label={t('stock.supplier')} value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
+            )}
           </>
         )}
-        <Button className="mt-4" onClick={handleSave}>Save</Button>
+        <Button className="mt-4" onClick={handleSave}>{t('common.save')}</Button>
       </Modal>
 
       <DeleteConfirmModal

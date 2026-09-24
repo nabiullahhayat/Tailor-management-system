@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Plus, Trash2 } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
+import TablePagination, { usePagination } from '../components/desktop/TablePagination.jsx';
 import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { addsService } from '../services/index.js';
 import { notify } from '../utils/toast.js';
 
 export default function AddsPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('orderTypes');
   const [orderTypes, setOrderTypes] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [otName, setOtName] = useState('');
   const [otMeasurements, setOtMeasurements] = useState(['']);
+  const [otShapes, setOtShapes] = useState(['']);
   const [editingTypeId, setEditingTypeId] = useState(null);
   const [typeErrors, setTypeErrors] = useState({});
 
@@ -51,6 +55,8 @@ export default function AddsPage() {
     loadData();
   }, [loadData]);
 
+  const cmPagination = usePagination(customerMeasurements);
+
   const validateOrderType = () => {
     const e = {};
     if (!otName.trim()) e.name = 'Order type name is required.';
@@ -72,13 +78,15 @@ export default function AddsPage() {
     setSavingType(true);
     try {
       const measurements = otMeasurements.map((m) => m.trim()).filter(Boolean);
+      const shapes = otShapes.map((s) => s.trim()).filter(Boolean);
       if (editingTypeId) {
-        await addsService.updateOrderType(editingTypeId, { name: otName.trim(), measurements });
+        await addsService.updateOrderType(editingTypeId, { name: otName.trim(), measurements, shapes });
       } else {
-        await addsService.createOrderType({ name: otName.trim(), measurements });
+        await addsService.createOrderType({ name: otName.trim(), measurements, shapes });
       }
       setOtName('');
       setOtMeasurements(['']);
+      setOtShapes(['']);
       setEditingTypeId(null);
       setTypeErrors({});
       await loadData();
@@ -92,6 +100,25 @@ export default function AddsPage() {
 
   const addMeasurementField = () => {
     setOtMeasurements((prev) => [...prev, '']);
+  };
+
+  const removeMeasurementField = (index) => {
+    setOtMeasurements((prev) => {
+      if (prev.length <= 1) return [''];
+      return prev.filter((_, i) => i !== index);
+    });
+    setTypeErrors((p) => ({ ...p, measurements: '' }));
+  };
+
+  const addShapeField = () => {
+    setOtShapes((prev) => [...prev, '']);
+  };
+
+  const removeShapeField = (index) => {
+    setOtShapes((prev) => {
+      if (prev.length <= 1) return [''];
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const validateEmployee = () => {
@@ -172,15 +199,15 @@ export default function AddsPage() {
 
   return (
     <PageShell
-      title="Adds"
-      subtitle="Order types, employees, and customer measurement field names"
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Adds' }]}
+      title={t('adds.title')}
+      subtitle={t('adds.subtitle')}
+      breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('adds.title') }]}
     >
       <div className="mb-4 flex max-w-2xl flex-wrap gap-2">
         {[
-          { key: 'orderTypes', label: 'Order Types' },
-          { key: 'employees', label: 'Employees' },
-          { key: 'customerMeasurements', label: 'Customer Measurement' },
+          { key: 'orderTypes', label: t('adds.orderTypes') },
+          { key: 'employees', label: t('adds.employees') },
+          { key: 'customerMeasurements', label: t('addsExtra.customerMeasurement') },
         ].map(({ key, label }) => (
           <button
             key={key}
@@ -196,9 +223,9 @@ export default function AddsPage() {
       {tab === 'orderTypes' && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="form-panel">
-            <SectionTitle title={editingTypeId ? 'Edit Order Type' : 'Add Order Type'} />
+            <SectionTitle title={editingTypeId ? t('addsExtra.editType') : t('addsExtra.addType')} />
             <Input
-              label="Type Name *"
+              label={t('addsExtra.typeName')}
               value={otName}
               onChange={(e) => {
                 setOtName(e.target.value);
@@ -206,29 +233,71 @@ export default function AddsPage() {
               }}
               error={typeErrors.name}
             />
-            <p className="mb-2 text-sm font-semibold text-ink-secondary">Measurement Names *</p>
+            <p className="mb-2 text-sm font-semibold text-ink-secondary">{t('addsExtra.measurementNames')}</p>
             {typeErrors.measurements && (
               <p className="mb-2 text-xs text-danger">{typeErrors.measurements}</p>
             )}
             {otMeasurements.map((m, i) => (
-              <div key={`ot-measure-${i}`} className="mb-2">
-                <Input
-                  placeholder={`Measurement ${i + 1}`}
-                  value={m}
-                  onChange={(e) => {
-                    const next = [...otMeasurements];
-                    next[i] = e.target.value;
-                    setOtMeasurements(next);
-                    setTypeErrors((p) => ({ ...p, measurements: '' }));
-                  }}
-                />
+              <div key={`ot-measure-${i}`} className="mb-2 flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    placeholder={t('addsExtra.measurementN', { n: i + 1 })}
+                    value={m}
+                    onChange={(e) => {
+                      const next = [...otMeasurements];
+                      next[i] = e.target.value;
+                      setOtMeasurements(next);
+                      setTypeErrors((p) => ({ ...p, measurements: '' }));
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeMeasurementField(i)}
+                  className="mt-1 rounded-md p-2 text-ink-muted transition hover:bg-red-50 hover:text-danger"
+                  aria-label="Remove measurement row"
+                  title={t('addsExtra.removeRow')}
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             ))}
             <Button type="button" variant="outline" className="mb-4" onClick={addMeasurementField}>
-              <Plus size={16} /> Add Field
+              <Plus size={16} /> {t('addsExtra.addField')}
             </Button>
+
+            <p className="mb-1 text-sm font-semibold text-ink-secondary">{t('addsExtra.shakl')}</p>
+            <p className="mb-2 text-xs text-ink-muted">{t('addsExtra.shaklHint')}</p>
+            {otShapes.map((s, i) => (
+              <div key={`ot-shape-${i}`} className="mb-2 flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    placeholder={t('addsExtra.shaklN', { n: i + 1 })}
+                    value={s}
+                    onChange={(e) => {
+                      const next = [...otShapes];
+                      next[i] = e.target.value;
+                      setOtShapes(next);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeShapeField(i)}
+                  className="mt-1 rounded-md p-2 text-ink-muted transition hover:bg-red-50 hover:text-danger"
+                  aria-label={t('addsExtra.removeRow')}
+                  title={t('addsExtra.removeRow')}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" className="mb-4" onClick={addShapeField}>
+              <Plus size={16} /> {t('addsExtra.addField')}
+            </Button>
+
             <Button type="button" disabled={savingType} onClick={saveOrderType}>
-              {savingType ? 'Saving…' : 'Save Order Type'}
+              {savingType ? t('addsExtra.saving') : t('addsExtra.saveType')}
             </Button>
           </div>
           <div className="space-y-3">
@@ -238,6 +307,11 @@ export default function AddsPage() {
                   <div>
                     <p className="font-bold text-ink">{type.name}</p>
                     <p className="mt-1 text-sm text-ink-muted">{(type.measurements || []).join(', ')}</p>
+                    {(type.shapes || []).length > 0 && (
+                      <p className="mt-1 text-sm text-ink-muted">
+                        {t('addsExtra.shakl')}: {(type.shapes || []).join(', ')}
+                      </p>
+                    )}
                   </div>
                   <TableRowActions
                     onView={() => setViewRecord({ kind: 'orderType', data: type })}
@@ -245,6 +319,7 @@ export default function AddsPage() {
                       setEditingTypeId(type.id);
                       setOtName(type.name);
                       setOtMeasurements(type.measurements?.length ? [...type.measurements] : ['']);
+                      setOtShapes(type.shapes?.length ? [...type.shapes] : ['']);
                       setTypeErrors({});
                     }}
                     onDelete={() => setDeleteTarget({ kind: 'orderType', id: type.id, name: type.name })}
@@ -260,22 +335,22 @@ export default function AddsPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="form-panel">
             <SectionTitle
-              title={editingCmId ? 'Edit Measurement Name' : 'Add Measurement Name'}
-              subtitle="These names appear as inputs on Add Customer"
+              title={editingCmId ? t('addsExtra.editMeasurement') : t('addsExtra.addMeasurement')}
+              subtitle={t('addsExtra.measurementHint')}
             />
             <Input
-              label="Name *"
+              label={t('addsExtra.nameRequired')}
               value={cmName}
               onChange={(e) => {
                 setCmName(e.target.value);
                 setCmErrors((p) => ({ ...p, name: '' }));
               }}
               error={cmErrors.name}
-              placeholder="e.g. Chest, Waist, Sleeve"
+              placeholder={t('addsExtra.placeholderExample')}
             />
             <div className="flex flex-wrap gap-2">
               <Button type="button" disabled={savingCm} onClick={saveCustomerMeasurement}>
-                {savingCm ? 'Saving…' : editingCmId ? 'Update Name' : 'Save Name'}
+                {savingCm ? t('addsExtra.saving') : editingCmId ? t('addsExtra.updateName') : t('addsExtra.saveName')}
               </Button>
               {editingCmId && (
                 <Button
@@ -287,30 +362,30 @@ export default function AddsPage() {
                     setCmErrors({});
                   }}
                 >
-                  Cancel edit
+                  {t('addsExtra.cancelEdit')}
                 </Button>
               )}
             </div>
           </div>
           <div className="min-w-0">
-            <SectionTitle title="Saved measurement names" />
+            <SectionTitle title={t('addsExtra.savedNames')} />
             <div className="panel overflow-hidden">
               <table className="measurement-names-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th className="measurement-names-actions">Actions</th>
+                    <th>{t('common.name')}</th>
+                    <th className="measurement-names-actions">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {customerMeasurements.length === 0 ? (
                     <tr>
                       <td colSpan={2} className="py-10 text-center text-sm text-ink-muted">
-                        No measurement names yet. Add one on the left.
+                        {t('addsExtra.emptyNames')}
                       </td>
                     </tr>
                   ) : (
-                    customerMeasurements.map((row) => (
+                    cmPagination.pageItems.map((row) => (
                       <tr key={row.id}>
                         <td className="font-medium text-ink">{row.name}</td>
                         <td className="measurement-names-actions">
@@ -337,6 +412,15 @@ export default function AddsPage() {
                   )}
                 </tbody>
               </table>
+              <TablePagination
+                page={cmPagination.page}
+                totalPages={cmPagination.totalPages}
+                totalItems={cmPagination.totalItems}
+                pageSize={cmPagination.pageSize}
+                start={cmPagination.start}
+                end={cmPagination.end}
+                onPageChange={cmPagination.setPage}
+              />
             </div>
           </div>
         </div>
@@ -345,9 +429,9 @@ export default function AddsPage() {
       {tab === 'employees' && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="form-panel">
-            <SectionTitle title={editingEmpId ? 'Edit Employee' : 'Add Employee'} />
+            <SectionTitle title={editingEmpId ? t('addsExtra.editEmployee') : t('addsExtra.addEmployee')} />
             <Input
-              label="Name *"
+              label={t('addsExtra.nameRequired')}
               value={empName}
               onChange={(e) => {
                 setEmpName(e.target.value);
@@ -356,7 +440,7 @@ export default function AddsPage() {
               error={empErrors.name}
             />
             <Input
-              label="Phone *"
+              label={t('addsExtra.phoneRequired')}
               value={empPhone}
               onChange={(e) => {
                 setEmpPhone(e.target.value);
@@ -366,13 +450,13 @@ export default function AddsPage() {
               placeholder="07xxxxxxxx"
             />
             <Input
-              label="Salary (₹)"
+              label={t('addsExtra.salary')}
               type="number"
               value={empSalary}
               onChange={(e) => setEmpSalary(e.target.value)}
             />
             <Button type="button" disabled={savingEmp} onClick={saveEmployee}>
-              {savingEmp ? 'Saving…' : 'Save Employee'}
+              {savingEmp ? t('addsExtra.saving') : t('addsExtra.saveEmployee')}
             </Button>
           </div>
           <div className="space-y-3">
@@ -412,28 +496,30 @@ export default function AddsPage() {
               ? viewRecord.data?.name
               : viewRecord?.data?.name
         }
-        subtitle="Details"
+        subtitle={t('addsExtra.details')}
       >
         {viewRecord?.kind === 'orderType' && (
           <div className="space-y-2 text-sm">
-            <p className="font-semibold text-ink">Measurement names</p>
+            <p className="font-semibold text-ink">{t('adds.measurements')}</p>
             <p className="text-ink-muted">{(viewRecord.data.measurements || []).join(', ') || '—'}</p>
+            <p className="mt-3 font-semibold text-ink">{t('addsExtra.shakl')}</p>
+            <p className="text-ink-muted">{(viewRecord.data.shapes || []).join(', ') || '—'}</p>
           </div>
         )}
         {viewRecord?.kind === 'employee' && (
           <div className="space-y-2 text-sm">
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">Phone</span>
+              <span className="text-ink-muted">{t('common.phone')}</span>
               <span className="font-semibold">{viewRecord.data.phone}</span>
             </div>
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
-              <span className="text-ink-muted">Salary</span>
+              <span className="text-ink-muted">{t('addsExtra.salary')}</span>
               <span className="font-semibold">₹{Number(viewRecord.data.salary || 0).toLocaleString()}</span>
             </div>
           </div>
         )}
         {viewRecord?.kind === 'customerMeasurement' && (
-          <p className="text-sm text-ink-muted">Used on Add Customer as a measurement field.</p>
+          <p className="text-sm text-ink-muted">{t('addsExtra.usedOnCustomer')}</p>
         )}
       </Modal>
 

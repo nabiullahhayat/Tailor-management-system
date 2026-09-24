@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { orderService } from '../services/index.js';
+import { coerceDeliveryDateForState } from '../utils/solarDate.js';
 
 const OrderContext = createContext(null);
 
@@ -19,7 +20,7 @@ export function OrderProvider({ children }) {
       const transformedOrders = (Array.isArray(data) ? data : []).map(order => ({
         ...order,
         date: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : '',
-        deliveryDate: order.deliveryDate ? new Date(order.deliveryDate).toISOString().split('T')[0] : '',
+        deliveryDate: coerceDeliveryDateForState(order.deliveryDate),
         measurements: typeof order.measurements === 'string' 
           ? order.measurements 
           : JSON.stringify(order.measurements || {}),
@@ -59,6 +60,11 @@ export function OrderProvider({ children }) {
         notes: data.notes || '',
         paymentStatus: data.paymentStatus || 'Pending',
         paidAmount: data.paidAmount ? parseFloat(data.paidAmount) : 0,
+        bookingCashReceived: data.bookingCashReceived ? parseFloat(data.bookingCashReceived) : 0,
+        bookingAppliedToDebt: data.bookingAppliedToDebt ? parseFloat(data.bookingAppliedToDebt) : 0,
+        bookingPrepaidAdded: data.bookingPrepaidAdded ? parseFloat(data.bookingPrepaidAdded) : 0,
+        orderLineItems: data.orderLineItems || [],
+        customerFabricMeters: data.customerFabricMeters ?? '',
       };
       
       const newOrder = await orderService.create(orderData);
@@ -67,7 +73,7 @@ export function OrderProvider({ children }) {
       const transformedOrder = {
         ...newOrder,
         date: newOrder.orderDate ? new Date(newOrder.orderDate).toISOString().split('T')[0] : '',
-        deliveryDate: newOrder.deliveryDate ? new Date(newOrder.deliveryDate).toISOString().split('T')[0] : '',
+        deliveryDate: coerceDeliveryDateForState(newOrder.deliveryDate),
       };
       
       setOrders(prev => [transformedOrder, ...prev]);
@@ -91,7 +97,7 @@ export function OrderProvider({ children }) {
             status,
             date: o.date,
             deliveryDate: updatedOrder.deliveryDate
-              ? new Date(updatedOrder.deliveryDate).toISOString().split('T')[0]
+              ? coerceDeliveryDateForState(updatedOrder.deliveryDate)
               : o.deliveryDate,
           };
         }),
@@ -115,9 +121,7 @@ export function OrderProvider({ children }) {
         date: updatedOrder.orderDate
           ? new Date(updatedOrder.orderDate).toISOString().split('T')[0]
           : '',
-        deliveryDate: updatedOrder.deliveryDate
-          ? new Date(updatedOrder.deliveryDate).toISOString().split('T')[0]
-          : '',
+        deliveryDate: coerceDeliveryDateForState(updatedOrder.deliveryDate),
       };
       setOrders(prev => prev.map(o => (o.id === id ? { ...o, ...transformed } : o)));
       return transformed;

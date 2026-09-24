@@ -79,14 +79,14 @@ export function getSalesByType(sales = []) {
   }));
 }
 
-export function getDailyIncomeTrend(transactions = [], days = 14) {
+export function getDailyIncomeTrend(transactions = [], days = 14, locale = 'en-US') {
   const result = [];
   const now = new Date();
   for (let i = days - 1; i >= 0; i -= 1) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const key = d.toISOString().split('T')[0];
-    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const label = d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
     const income = transactions
       .filter((t) => t.category === 'income' && t.date === key)
       .reduce((s, t) => s + t.amount, 0);

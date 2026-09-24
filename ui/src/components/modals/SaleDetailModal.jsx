@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
 import Button from '../ui/Button.jsx';
 
 export default function SaleDetailModal({ open, sale, onClose, onMarkPaid }) {
+  const { t } = useTranslation();
   if (!sale) return null;
 
   const handleMarkPaid = async () => {
@@ -19,18 +21,18 @@ export default function SaleDetailModal({ open, sale, onClose, onMarkPaid }) {
         <StatusBadge status={sale.paymentStatus || 'Pending'} />
         <div className="grid gap-3 sm:grid-cols-2">
           {[
-            ['Sale Type', sale.saleType],
-            ['Product', sale.productName],
-            ['Unit Price', `₹${Number(sale.unitPrice || 0).toLocaleString()}`],
-            ['Total', `₹${Number(sale.totalAmount || 0).toLocaleString()}`],
-            ['Paid', `₹${Number(sale.paidAmount || 0).toLocaleString()}`],
+            [t('salesExtra.saleType'), t(`ledger.${sale.saleType}`, { defaultValue: sale.saleType })],
+            [t('sales.product'), sale.productName],
+            [t('stock.unitPrice'), `₹${Number(sale.unitPrice || 0).toLocaleString()}`],
+            [t('common.total'), `₹${Number(sale.totalAmount || 0).toLocaleString()}`],
+            [t('common.paid'), `₹${Number(sale.paidAmount || 0).toLocaleString()}`],
             [
-              'Credit / remaining',
+              t('salesExtra.creditRemaining'),
               `₹${Math.max(0, Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0)).toLocaleString()}`,
             ],
-            ['Meters', sale.meters ?? '—'],
-            ['Quantity', sale.quantity ?? '—'],
-            ['Date', sale.date || sale.saleDate?.split('T')[0] || '—'],
+            [t('salesExtra.meters'), sale.meters ?? '—'],
+            [t('common.quantity'), sale.quantity ?? '—'],
+            [t('common.date'), sale.date || sale.saleDate?.split('T')[0] || '—'],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl bg-background px-3 py-2">
               <p className="text-xs text-ink-muted">{label}</p>
@@ -40,7 +42,7 @@ export default function SaleDetailModal({ open, sale, onClose, onMarkPaid }) {
         </div>
         {sale.paymentStatus !== 'Paid' && (
           <Button variant="success" onClick={handleMarkPaid}>
-            Mark as Paid
+            {t('salesExtra.markPaid')}
           </Button>
         )}
       </div>

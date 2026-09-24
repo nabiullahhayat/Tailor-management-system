@@ -32,11 +32,15 @@
   #root {
     @apply h-screen overflow-hidden;
   }
+
+  html[dir='rtl'] body {
+    font-family: "Noto Naskh Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 @layer components {
   .sidebar-shell {
-    @apply h-screen shrink-0 overflow-hidden border-r border-navy-light/50;
+    @apply flex h-screen shrink-0 flex-col overflow-hidden border-e border-navy-light/50;
   }
 
   .sidebar-nav-scroll {
@@ -75,6 +79,27 @@
 
   .data-table {
     @apply w-full min-w-[720px] text-left text-sm;
+  }
+
+  .data-table-compact {
+    @apply w-full table-fixed text-left text-xs;
+    min-width: 0;
+  }
+
+  .data-table-compact thead tr {
+    @apply border-b border-primary-soft bg-primary-soft/40;
+  }
+
+  .data-table-compact th {
+    @apply px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-muted;
+  }
+
+  .data-table-compact tbody tr {
+    @apply border-b border-primary-soft/60 transition hover:bg-primary-soft/30;
+  }
+
+  .data-table-compact td {
+    @apply px-2 py-2 align-middle text-ink-secondary;
   }
 
   .data-table thead tr {
@@ -124,6 +149,27 @@
   .measurement-names-table .measurement-names-actions {
     @apply w-[6.25rem] px-1 text-right;
   }
+
+  .table-pagination-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary-soft bg-surface text-ink-muted transition hover:border-accent/30 hover:text-navy disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .table-pagination-page {
+    @apply min-w-[2.25rem] rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-semibold text-ink-muted transition hover:bg-primary-soft/50 hover:text-ink;
+  }
+
+  .table-pagination-page-active {
+    @apply border-accent bg-accent text-white shadow-sm hover:bg-accent hover:text-white;
+  }
+
+  .table-pagination-select {
+    @apply min-w-[4.5rem] cursor-pointer rounded-lg border border-primary-soft bg-surface py-1.5 pl-3 pr-8 text-sm font-semibold text-ink shadow-sm transition hover:border-accent/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1rem;
+  }
 }
 
 @media print {
@@ -132,7 +178,9 @@
   }
 
   #sale-bill-print,
-  #sale-bill-print * {
+  #sale-bill-print *,
+  #order-invoice-print,
+  #order-invoice-print * {
     visibility: visible;
   }
 
@@ -145,7 +193,22 @@
     padding: 1rem;
   }
 
-  .sale-bill-actions {
+  #order-invoice-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    max-width: 80mm;
+    border: none;
+    padding: 2mm;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+  }
+
+  .sale-bill-actions,
+  .order-invoice-actions {
     display: none !important;
   }
 }

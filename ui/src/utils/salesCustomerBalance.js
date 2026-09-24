@@ -92,63 +92,38 @@ function paymentStatusFor(total, paid) {
 }
 
 /**
- * Preview checkout: cash pays old debt first, then wallet + leftover cash on this sale; surplus → prepaid wallet.
+ * Prepaid credit applies to this sale first (up to total), then cash on the balance;
+ * cash beyond what's due → prepaid credit again.
  */
-export function previewSaleCheckout(customer, saleTotal, cashPaid, walletUsed, sales, salesCustomers) {
+export function previewSaleCheckout(customer, saleTotal, cashPaid) {
   const total = Math.max(0, Number(saleTotal) || 0);
-  let cash = Math.max(0, parseFloat(cashPaid) || 0);
-  let wallet = Math.max(0, parseFloat(walletUsed) || 0);
+  const cash = Math.max(0, parseFloat(cashPaid) || 0);
   const prepaid = Number(customer?.creditBalance || 0);
-  wallet = Math.min(wallet, prepaid);
-
-  const customerSales = getSalesForCustomer(customer.id, customer.name, sales, salesCustomers);
-  const { allocations, unapplied: cashLeft } = allocateCreditPayment(customerSales, cash);
-  const cashAppliedToDebt = cash - cashLeft;
-  cash = cashLeft;
-
-  const towardSale = wallet + cash;
-  const salePaid = Math.min(total, towardSale);
-  const surplus = towardSale - salePaid;
-  const walletDelta = -wallet + surplus;
-  const newPrepaid = Math.max(0, prepaid + walletDelta);
+  const walletUsed = Math.min(prepaid, total);
+  const dueAfterCredit = total - walletUsed;
+  const cashOnSale = Math.min(cash, dueAfterCredit);
+  const salePaid = walletUsed + cashOnSale;
+  const surplus = Math.max(0, cash - dueAfterCredit);
 
   return {
-    cashAppliedToDebt,
-    walletUsed: wallet,
-    cashOnThisSale: Math.min(cash, Math.max(0, total - wallet)),
+    cashAppliedToDebt: 0,
+    walletUsed,
+    amountDueAfterCredit: dueAfterCredit,
+    cashOnThisSale: cashOnSale,
     salePaidAmount: salePaid,
     saleRemaining: total - salePaid,
     paymentStatus: paymentStatusFor(total, salePaid),
     surplusToPrepaid: surplus,
-    newPrepaidCredit: newPrepaid,
-    debtAllocations: allocations,
+    newPrepaidCredit: Math.max(0, prepaid - walletUsed + surplus),
+    debtAllocations: [],
   };
 }
 
-export async function executeSaleCheckout({
-  customer,
-  saleTotal,
-  cashPaid,
-  walletUsed,
-  sales,
-  salesCustomers,
-  recordPayment,
-  adjustWallet,
-}) {
-  const preview = previewSaleCheckout(customer, saleTotal, cashPaid, walletUsed, sales, salesCustomers);
+export async function executeSaleCheckout({ customer, saleTotal, cashPaid, adjustWallet }) {
+  const preview = previewSaleCheckout(customer, saleTotal, cashPaid);
+  const walletDelta = -preview.walletUsed + preview.surplusToPrepaid;
 
-  for (const { sale, newPaidAmount, markPaid } of preview.debtAllocations) {
-    await recordPayment(sale.id, {
-      paidAmount: newPaidAmount,
-      paymentStatus: markPaid ? 'Paid' : 'Partial',
-    });
-  }
-
-  const walletDelta = preview.walletUsed > 0 || preview.surplusToPrepaid > 0
-    ? -preview.walletUsed + preview.surplusToPrepaid
-    : 0;
-
-  if (walletDelta !== 0) {
+  if (walletDelta !== 0 && adjustWallet) {
     await adjustWallet(customer.id, walletDelta);
   }
 

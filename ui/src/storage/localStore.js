@@ -7,6 +7,7 @@ import AsyncStorage from './browserStorage.js';
 import { STORAGE_KEYS } from './storageKeys.js';
 import { DEFAULT_APP_SETTINGS, collectDemoRecordIds } from './mockData.js';
 import { applyOrderCustomerCashPayment } from '../utils/orderCustomerBalance.js';
+import { collectStockWarnings } from '../utils/stockWarnings.js';
 
 const COLLECTION_KEYS = [
   STORAGE_KEYS.customers,
@@ -351,6 +352,11 @@ export async function createOrder(orderData) {
     orderDate: now,
     paymentStatus: orderData.paymentStatus || 'Pending',
     paidAmount: parseFloat(orderData.paidAmount || 0),
+    bookingCashReceived: parseFloat(orderData.bookingCashReceived || 0),
+    bookingAppliedToDebt: parseFloat(orderData.bookingAppliedToDebt || 0),
+    bookingPrepaidAdded: parseFloat(orderData.bookingPrepaidAdded || 0),
+    orderLineItems: stringifyMeasurements(orderData.orderLineItems || []),
+    customerFabricMeters: String(orderData.customerFabricMeters ?? '').trim(),
     createdAt: now,
     updatedAt: now,
   };
@@ -370,6 +376,12 @@ export async function updateOrder(id, data) {
     ...orders[index],
     ...data,
     ...(data.measurements !== undefined && { measurements: stringifyMeasurements(data.measurements) }),
+    ...(data.orderLineItems !== undefined && {
+      orderLineItems: stringifyMeasurements(data.orderLineItems),
+    }),
+    ...(data.customerFabricMeters !== undefined && {
+      customerFabricMeters: String(data.customerFabricMeters ?? '').trim(),
+    }),
     updatedAt: new Date().toISOString(),
   };
   orders[index] = updated;
@@ -385,10 +397,31 @@ export async function updateOrderPayment(id, paymentData) {
   return updateOrder(id, paymentData);
 }
 
+async function removeFinancialRecordsForOrder(orderId) {
+  const income = await readCollection(STORAGE_KEYS.income);
+  const nextIncome = income.filter((r) => r.orderId !== orderId);
+  await writeCollection(STORAGE_KEYS.income, nextIncome);
+
+  const transactions = await getTransactions();
+  const nextTx = transactions.filter(
+    (t) => !(t.referenceId === orderId && t.referenceType === 'order'),
+  );
+  await saveTransactions(nextTx);
+}
+
 export async function deleteOrder(id) {
   await initializeStore();
   const orders = await readCollection(STORAGE_KEYS.orders);
-  await writeCollection(STORAGE_KEYS.orders, orders.filter((o) => o.id !== id));
+  const order = orders.find((o) => o.id === id);
+  if (!order) return { success: false };
+
+  await removeFinancialRecordsForOrder(id);
+
+  await writeCollection(
+    STORAGE_KEYS.orders,
+    orders.filter((o) => o.id !== id),
+  );
+  return { success: true, tokenNumber: order.tokenNumber };
 }
 
 export async function getOrderStats() {
@@ -411,6 +444,7 @@ export async function createOrderType(data) {
     id: generateId(),
     name: data.name.trim(),
     measurements: (data.measurements || []).filter((m) => m && m.trim()).map((m) => m.trim()),
+    shapes: (data.shapes || []).filter((s) => s && s.trim()).map((s) => s.trim()),
     createdAt: now,
     updatedAt: now,
   };
@@ -431,6 +465,9 @@ export async function updateOrderType(id, data) {
     measurements: data.measurements !== undefined
       ? data.measurements.filter((m) => m && m.trim()).map((m) => m.trim())
       : types[index].measurements,
+    shapes: data.shapes !== undefined
+      ? data.shapes.filter((s) => s && s.trim()).map((s) => s.trim())
+      : types[index].shapes || [],
     updatedAt: new Date().toISOString(),
   };
   types[index] = updated;
@@ -763,11 +800,12 @@ export async function getStockLogs() {
 
 export async function getStockStats() {
   const [fabrics, machinery] = await Promise.all([getFabrics(), getMachinery()]);
+  const alerts = collectStockWarnings(fabrics, machinery);
   return {
     fabricCount: fabrics.length,
     machineryCount: machinery.length,
-    lowFabricStock: fabrics.filter((f) => f.stock < 10),
-    lowMachineryStock: machinery.filter((m) => m.stock < 3),
+    lowFabricStock: alerts.filter((a) => a.kind === 'fabric'),
+    lowMachineryStock: alerts.filter((a) => a.kind === 'machinery'),
   };
 }
 
@@ -1051,6 +1089,7 @@ export async function recordOrderPayment(id, { paymentAmount, paymentReceived = 
     const updated = {
       ...order,
       ...(markDelivered ? { status: 'Delivered' } : {}),
+      deliveryPaymentAcknowledged: true,
       updatedAt: new Date().toISOString(),
     };
     orders[index] = updated;
@@ -1146,12 +1185,27 @@ export async function saveTransactions(transactions) {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+function normalizeAppSettings(settings) {
+  const s = { ...settings };
+  if (s.appIconPath) {
+    s.appIconDataUrl = '';
+  } else if (typeof s.appIconDataUrl === 'string' && s.appIconDataUrl.length > 80_000) {
+    s.appIconDataUrl = '';
+  }
+  return s;
+}
+
 export async function getSettings() {
   await initializeStore();
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.settings);
   if (!raw) return { ...DEFAULT_APP_SETTINGS };
   try {
-    return JSON.parse(raw);
+    const parsed = normalizeAppSettings(JSON.parse(raw));
+    const rawAgain = JSON.stringify(parsed);
+    if (rawAgain.length < raw.length) {
+      await AsyncStorage.setItem(STORAGE_KEYS.settings, rawAgain);
+    }
+    return parsed;
   } catch {
     return { ...DEFAULT_APP_SETTINGS };
   }
@@ -1159,7 +1213,7 @@ export async function getSettings() {
 
 export async function updateSettings(updates) {
   const current = await getSettings();
-  const updated = { ...current, ...updates };
+  const updated = normalizeAppSettings({ ...current, ...updates });
   await AsyncStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(updated));
   return updated;
 }
@@ -1239,13 +1293,19 @@ export async function getDashboardOverview() {
     .filter((s) => s.paymentStatus === 'Pending')
     .reduce((sum, s) => sum + (s.totalAmount || 0), 0);
 
-  const lowFabricStock = fabrics
-    .filter((f) => f.stock < 10)
-    .map(({ id, name, stock, pricePerMeter }) => ({ id, name, stock, pricePerMeter }));
-
-  const lowMachineryStock = machinery
-    .filter((m) => m.stock < 3)
-    .map(({ id, name, stock, unitPrice }) => ({ id, name, stock, unitPrice }));
+  const stockWarningItems = collectStockWarnings(fabrics, machinery);
+  const lowFabricStock = stockWarningItems
+    .filter((a) => a.kind === 'fabric')
+    .map(({ id, name, stock }) => {
+      const f = fabrics.find((x) => x.id === id);
+      return { id, name, stock, pricePerMeter: f?.pricePerMeter };
+    });
+  const lowMachineryStock = stockWarningItems
+    .filter((a) => a.kind === 'machinery')
+    .map(({ id, name, stock }) => {
+      const m = machinery.find((x) => x.id === id);
+      return { id, name, stock, unitPrice: m?.unitPrice };
+    });
 
   return {
     today: {
