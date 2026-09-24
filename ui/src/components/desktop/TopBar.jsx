@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bell, Calendar, Menu, Plus, Search, X } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext.jsx';
+import AppIconMark from '../ui/AppIconMark.jsx';
+import { fallbackLetterFromAppName } from '../../utils/appIcon.js';
 import { useStock } from '../../context/StockContext.jsx';
 import { useOrders } from '../../context/OrderContext.jsx';
 import { getActiveNavItem } from '../../utils/navActive.js';
@@ -19,7 +22,8 @@ import {
 } from '../../utils/notificationDismiss.js';
 
 export default function TopBar({ onMenuClick }) {
-  const { appName } = useSettings();
+  const { t } = useTranslation();
+  const { appName, appIconUrl } = useSettings();
   const { fabrics, machinery } = useStock();
   const { orders } = useOrders();
   const location = useLocation();
@@ -29,10 +33,10 @@ export default function TopBar({ onMenuClick }) {
   const [dismissedKeys, setDismissedKeys] = useState(() => loadDismissedNotificationKeys());
   const notificationsRef = useRef(null);
 
-  const currentPage = useMemo(
-    () => getActiveNavItem(location.pathname)?.label || 'Dashboard',
-    [location.pathname],
-  );
+  const currentPage = useMemo(() => {
+    const item = getActiveNavItem(location.pathname);
+    return item ? t(`nav.items.${item.id}`) : t('nav.items.overview');
+  }, [location.pathname, t]);
 
   const stockWarnings = useMemo(
     () => collectStockWarnings(fabrics, machinery),
@@ -121,7 +125,7 @@ export default function TopBar({ onMenuClick }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search orders, customers, sales…"
+            placeholder={t('topbar.searchPlaceholder')}
             className="w-full rounded-lg border border-primary-soft bg-background py-2 pl-9 pr-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15"
           />
         </div>
@@ -138,7 +142,7 @@ export default function TopBar({ onMenuClick }) {
             type="button"
             onClick={() => setNotificationsOpen((o) => !o)}
             className="relative rounded-lg border border-primary-soft p-2 text-ink-muted hover:bg-primary-soft"
-            aria-label="Notifications"
+            aria-label={t('topbar.notifications')}
             aria-expanded={notificationsOpen}
           >
             <Bell size={18} />
@@ -152,12 +156,12 @@ export default function TopBar({ onMenuClick }) {
           {notificationsOpen && (
             <div className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-primary-soft bg-surface py-2 shadow-lg">
               <div className="border-b border-primary-soft px-4 py-2">
-                <p className="text-sm font-bold text-ink">Notifications</p>
-                <p className="text-xs text-ink-muted">Delivery and stock alerts</p>
+                <p className="text-sm font-bold text-ink">{t('topbar.notifications')}</p>
+                <p className="text-xs text-ink-muted">{t('topbar.deliveryAndStock')}</p>
               </div>
 
               {notificationCount === 0 ? (
-                <p className="px-4 py-6 text-center text-sm text-ink-muted">No notifications right now.</p>
+                <p className="px-4 py-6 text-center text-sm text-ink-muted">{t('topbar.none')}</p>
               ) : (
                 <ul className="max-h-80 overflow-y-auto py-1">
                   {visibleDeliveryAlerts.map((order) => {
@@ -175,14 +179,14 @@ export default function TopBar({ onMenuClick }) {
                           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-ink">
-                              Warning: Order {formatOrderWarningLabel(order)} delivery is tomorrow.
+                              {t('topbar.deliveryTomorrow', { token: formatOrderWarningLabel(order) })}
                             </p>
                             <p className="truncate text-xs text-ink-muted">{order.customerName}</p>
                           </div>
                         </button>
                         <button
                           type="button"
-                          aria-label="Dismiss notification"
+                          aria-label={t('topbar.dismiss')}
                           onClick={() => dismissNotification(dismissKey)}
                           className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
                         >
@@ -207,13 +211,17 @@ export default function TopBar({ onMenuClick }) {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-ink">{alert.name}</p>
                             <p className="text-xs text-ink-muted">
-                              Low stock · {alert.stock} {alert.unitLabel} left (warn ≤ {alert.warningQuantity})
+                              {t('topbar.lowStock', {
+                              stock: alert.stock,
+                              unit: alert.unitLabel,
+                              warn: alert.warningQuantity,
+                            })}
                             </p>
                           </div>
                         </button>
                         <button
                           type="button"
-                          aria-label="Dismiss notification"
+                          aria-label={t('topbar.dismiss')}
                           onClick={() => dismissNotification(dismissKey)}
                           className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
                         >
@@ -235,7 +243,7 @@ export default function TopBar({ onMenuClick }) {
                     }}
                     className="text-xs font-semibold text-accent hover:underline"
                   >
-                    All orders
+                    {t('topbar.allOrders')}
                   </button>
                 )}
                 {visibleStockWarnings.length > 0 && (
@@ -247,7 +255,7 @@ export default function TopBar({ onMenuClick }) {
                     }}
                     className="text-xs font-semibold text-accent hover:underline"
                   >
-                    Stock management
+                    {t('topbar.stockManagement')}
                   </button>
                 )}
               </div>
@@ -261,11 +269,16 @@ export default function TopBar({ onMenuClick }) {
           className="hidden items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-accent/90 sm:flex"
         >
           <Plus size={16} />
-          New Order
+          {t('common.newOrder')}
         </button>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-navy to-navy-light text-sm font-bold text-white">
-          K
-        </div>
+        <AppIconMark
+          appIconUrl={appIconUrl}
+          fallbackLetter={fallbackLetterFromAppName(appName)}
+          className="h-9 w-9"
+          letterClassName="text-sm font-bold text-white"
+          roundedClassName="rounded-full"
+          showGradientFallback
+        />
       </div>
     </header>
   );

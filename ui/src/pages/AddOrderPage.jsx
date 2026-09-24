@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
@@ -7,7 +8,7 @@ import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import { useCustomers } from '../context/CustomerContext.jsx';
 import { useOrders } from '../context/OrderContext.jsx';
 import { addsService, orderService } from '../services/index.js';
-import { getTodaySolar } from '../utils/solarDate.js';
+import { getTodaySolar, normalizeSolarDateString } from '../utils/solarDate.js';
 import { notify } from '../utils/toast.js';
 import {
   buildOrderCustomerBalanceMap,
@@ -16,6 +17,7 @@ import {
 } from '../utils/orderCustomerBalance.js';
 
 export default function AddOrderPage() {
+  const { t } = useTranslation();
   const { customers, adjustCreditBalance, refreshCustomers } = useCustomers();
   const { orders, addOrder, refreshOrders } = useOrders();
   const [orderTypes, setOrderTypes] = useState([]);
@@ -29,6 +31,8 @@ export default function AddOrderPage() {
   const [typePrices, setTypePrices] = useState({});
   const [typeQuantities, setTypeQuantities] = useState({});
   const [measurements, setMeasurements] = useState({});
+  /** typeId → selected shape option names */
+  const [typeShapeSelection, setTypeShapeSelection] = useState({});
   const [color, setColor] = useState('');
   const [customerFabricMeters, setCustomerFabricMeters] = useState('');
   const [employeeId, setEmployeeId] = useState('');
@@ -57,13 +61,27 @@ export default function AddOrderPage() {
 
   const buildMeasurementsPayload = () => {
     const out = {};
-    selectedTypes.forEach((t) => {
-      (t.measurements || []).forEach((m) => {
-        const val = measurements[typeMeasurementKey(t.id, m)];
-        if (val !== undefined && val !== '') out[`${t.name} — ${m}`] = val;
+    const shaklLabel = t('addsExtra.shakl');
+    selectedTypes.forEach((type) => {
+      (type.measurements || []).forEach((m) => {
+        const val = measurements[typeMeasurementKey(type.id, m)];
+        if (val !== undefined && val !== '') out[`${type.name} — ${m}`] = val;
+      });
+      (typeShapeSelection[type.id] || []).forEach((shape) => {
+        out[`${type.name} — ${shaklLabel} (${shape})`] = '✓';
       });
     });
     return out;
+  };
+
+  const toggleShapeOption = (typeId, shapeName) => {
+    setTypeShapeSelection((prev) => {
+      const list = prev[typeId] || [];
+      const nextList = list.includes(shapeName)
+        ? list.filter((s) => s !== shapeName)
+        : [...list, shapeName];
+      return { ...prev, [typeId]: nextList };
+    });
   };
 
   const lineTotalForType = (typeId) => {
@@ -96,6 +114,11 @@ export default function AddOrderPage() {
           Object.keys(next).forEach((k) => {
             if (k.startsWith(prefix)) delete next[k];
           });
+          return next;
+        });
+        setTypeShapeSelection((prev) => {
+          const next = { ...prev };
+          delete next[typeId];
           return next;
         });
         return prev.filter((id) => id !== typeId);
@@ -158,34 +181,34 @@ export default function AddOrderPage() {
 
   const validate = () => {
     const e = {};
-    if (!customerId && !customerName.trim()) e.customer = 'Customer is required.';
-    if (selectedTypeIds.length === 0) e.orderType = 'Select at least one order type.';
+    if (!customerId && !customerName.trim()) e.customer = t('newOrder.customerRequired');
+    if (selectedTypeIds.length === 0) e.orderType = t('newOrder.typeRequired');
     selectedTypeIds.forEach((id) => {
       const p = parseFloat(typePrices[id]);
-      if (!p || p <= 0) e[`price_${id}`] = 'Enter price for this type.';
+      if (!p || p <= 0) e[`price_${id}`] = t('newOrder.priceRequired');
       const qRaw = typeQuantities[id];
       const q = parseInt(qRaw, 10);
       if (qRaw === '' || qRaw === undefined || Number.isNaN(q) || q < 1) {
-        e[`qty_${id}`] = 'Quantity must be at least 1.';
+        e[`qty_${id}`] = t('newOrder.qtyRequired');
       }
     });
-    if (totalAmount <= 0 && selectedTypeIds.length > 0) e.orderType = 'Enter a price for each selected type.';
-    if (!solarDate.trim()) e.solarDate = 'Order date is required.';
-    if (!deliveryDate.trim()) e.delivery = 'Delivery date is required.';
-    if (!hasCustomerPaid) e.hasPaid = 'Select whether the customer has paid.';
+    if (totalAmount <= 0 && selectedTypeIds.length > 0) e.orderType = t('newOrder.priceRequired');
+    if (!solarDate.trim()) e.solarDate = t('newOrder.dateRequired');
+    if (!deliveryDate.trim()) e.delivery = t('newOrder.deliveryRequired');
+    if (!hasCustomerPaid) e.hasPaid = t('newOrder.paidRequired');
     if (hasCustomerPaid === 'yes' && cashPaid !== '' && Number.isNaN(Number(cashPaid))) {
-      e.cashPaid = 'Enter a valid payment amount.';
+      e.cashPaid = t('newOrder.paidRequired');
     }
     if (hasCustomerPaid === 'yes') {
       const cash = Math.max(0, parseFloat(cashPaid) || 0);
       if (cash > totalAmount && !checkoutCustomer) {
-        e.customer = 'Select or type an existing customer name to save extra payment as credit.';
+        e.customer = t('newOrder.customerRequired');
       }
     }
-    selectedTypes.forEach((t) => {
-      (t.measurements || []).forEach((m) => {
-        const key = typeMeasurementKey(t.id, m);
-        if (!measurements[key]) e[`m_${key}`] = `${m} is required for ${t.name}.`;
+    selectedTypes.forEach((type) => {
+      (type.measurements || []).forEach((m) => {
+        const key = typeMeasurementKey(type.id, m);
+        if (!measurements[key]) e[`m_${key}`] = t('newOrder.fieldRequired', { field: m });
       });
     });
     setErrors(e);
@@ -261,7 +284,7 @@ export default function AddOrderPage() {
       employeeId: employeeId || null,
       employeeName: emp?.name || '',
       orderDateSolar: solarDate,
-      deliveryDate,
+      deliveryDate: normalizeSolarDateString(deliveryDate) || deliveryDate.trim(),
       notes,
     });
 
@@ -272,6 +295,7 @@ export default function AddOrderPage() {
     setTypePrices({});
     setTypeQuantities({});
     setMeasurements({});
+    setTypeShapeSelection({});
     setColor('');
     setCustomerFabricMeters('');
     setEmployeeId('');
@@ -293,46 +317,46 @@ export default function AddOrderPage() {
   const orderRemainingDisplay = checkoutPreview?.orderRemaining ?? totalAmount;
 
   const confirmRows = [
-    { label: 'Customer', value: resolveCustomerName() },
-    ...selectedTypes.flatMap((t) => {
-      const qty = Math.max(1, parseInt(typeQuantities[t.id], 10) || 1);
-      const unit = Number(typePrices[t.id] || 0);
+    { label: t('common.customer'), value: resolveCustomerName() },
+    ...selectedTypes.flatMap((type) => {
+      const qty = Math.max(1, parseInt(typeQuantities[type.id], 10) || 1);
+      const unit = Number(typePrices[type.id] || 0);
       return [
         {
-          label: t.name,
-          value: `${qty} × ₹${unit.toLocaleString()} = ₹${lineTotalForType(t.id).toLocaleString()}`,
+          label: type.name,
+          value: `${qty} × ₹${unit.toLocaleString()} = ₹${lineTotalForType(type.id).toLocaleString()}`,
         },
       ];
     }),
     ...(customerFabricMeters.trim()
-      ? [{ label: 'Customer fabric (m)', value: customerFabricMeters }]
+      ? [{ label: t('detail.fabricMeters'), value: customerFabricMeters }]
       : []),
-    { label: 'Delivery Date', value: deliveryDate },
-    { label: 'Total Amount', value: `₹${totalAmount.toLocaleString()}`, highlight: true },
+    { label: t('common.deliveryDate'), value: deliveryDate },
+    { label: t('detail.totalAmount'), value: `₹${totalAmount.toLocaleString()}`, highlight: true },
     ...(checkoutPreview?.walletUsed > 0
-      ? [{ label: 'Prepaid credit applied', value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.prepaidApplied'), value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
       : []),
     ...(checkoutPreview?.walletUsed > 0 && checkoutPreview.orderRemaining >= 0
       ? [
           {
-            label: 'Due after prepaid credit',
+            label: t('salesExtra.dueAfter'),
             value: `₹${Math.max(0, totalAmount - (checkoutPreview.walletUsed || 0)).toLocaleString()}`,
           },
         ]
       : []),
     ...(checkoutPreview?.cashAppliedToDebt > 0
-      ? [{ label: 'Cash to old remaining', value: `₹${checkoutPreview.cashAppliedToDebt.toLocaleString()}` }]
+      ? [{ label: t('detail.cashToDebt'), value: `₹${checkoutPreview.cashAppliedToDebt.toLocaleString()}` }]
       : []),
-    { label: 'Paid on this order', value: `₹${orderPaidDisplay.toLocaleString()}` },
+    { label: t('detail.paidOnOrder'), value: `₹${orderPaidDisplay.toLocaleString()}` },
     {
-      label: 'Remaining on this order',
+      label: t('detail.remainingOrder'),
       value: `₹${orderRemainingDisplay.toLocaleString()}`,
       highlight: orderRemainingDisplay > 0,
     },
     ...(checkoutPreview?.surplusToPrepaid > 0
-      ? [{ label: 'Added to prepaid credit', value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.addedPrepaid'), value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
       : []),
-    { label: 'Payment status', value: checkoutPreview?.paymentStatus || paymentStatusLabel() },
+    { label: t('salesExtra.paymentStatus'), value: t(`status.${checkoutPreview?.paymentStatus || paymentStatusLabel()}`) },
   ];
 
   function paymentStatusLabel() {
@@ -352,15 +376,15 @@ export default function AddOrderPage() {
 
   return (
     <PageShell
-      title="New Tailoring Order"
-      subtitle="Book a new garment order with measurements and delivery date"
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Orders', to: '/orders' }, { label: 'New Order' }]}
+      title={t('newOrder.title')}
+      subtitle={t('newOrder.subtitle')}
+      breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('orders.title'), to: '/orders' }, { label: t('common.newOrder') }]}
     >
       <div className="mx-auto w-full max-w-[1440px]">
         <div className="grid items-start gap-5 xl:grid-cols-12">
           <div className="space-y-5 xl:col-span-7">
             <div className="form-panel p-4 lg:p-5">
-              <SectionTitle title="Customer" />
+              <SectionTitle title={t('newOrder.customer')} />
               <div className="grid gap-3 md:grid-cols-2">
                 <select
                   value={customerId}
@@ -370,7 +394,7 @@ export default function AddOrderPage() {
                   }}
                   className={selectClass}
                 >
-                  <option value="">Select existing customer…</option>
+                  <option value="">{t('newOrder.selectCustomer')}</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.tokenNumber})
@@ -378,7 +402,7 @@ export default function AddOrderPage() {
                   ))}
                 </select>
                 <Input
-                  placeholder="Or enter new customer name"
+                  placeholder={t('newOrder.newCustomer')}
                   value={customerName}
                   onChange={(e) => {
                     setCustomerName(e.target.value);
@@ -391,13 +415,13 @@ export default function AddOrderPage() {
               {checkoutCustomer && (
                 <div className="mt-3 grid gap-2 rounded-xl border border-black/5 bg-background px-3 py-2 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-ink-muted">Outstanding remaining (debt)</p>
+                    <p className="text-xs text-ink-muted">{t('newOrder.debt')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
                       ₹{outstandingDebt.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-ink-muted">Prepaid credit</p>
+                    <p className="text-xs text-ink-muted">{t('newOrder.prepaid')}</p>
                     <p className="text-base font-bold text-success">₹{prepaidAvailable.toLocaleString()}</p>
                   </div>
                 </div>
@@ -405,18 +429,18 @@ export default function AddOrderPage() {
 
               <div className="mt-3">
                 <Input
-                  label="Customer fabric given (meters)"
+                  label={t('newOrder.fabricMeters')}
                   type="number"
                   value={customerFabricMeters}
                   onChange={(e) => setCustomerFabricMeters(e.target.value)}
-                  placeholder="Meters of fabric customer provided (record only)"
+                  placeholder={t('newOrder.fabricPlaceholder')}
                 />
               </div>
 
               {selectedCustomer && Object.keys(savedMeasurements).length > 0 && (
                 <div className="mt-3 rounded-xl border border-primary-soft/80 bg-background px-3 py-2">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                    Saved measurements
+                    {t('newOrder.savedMeasurements')}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(savedMeasurements).map(([key, value]) => (
@@ -433,19 +457,20 @@ export default function AddOrderPage() {
             </div>
 
             <div className="form-panel p-4 lg:p-5">
-              <SectionTitle title="Order Types" subtitle="Select one or more; enter price and quantity for each" />
+              <SectionTitle title={t('newOrder.orderTypes')} subtitle={t('newOrder.orderTypesHint')} />
               {orderTypes.length === 0 ? (
                 <div className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
-                  No order types yet. Go to Adds menu and create order types first.
+                  {t('newOrder.noTypes')}
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {orderTypes.map((t) => {
-                    const checked = selectedTypeIds.includes(t.id);
-                    const typeFields = t.measurements || [];
+                  {orderTypes.map((type) => {
+                    const checked = selectedTypeIds.includes(type.id);
+                    const typeFields = type.measurements || [];
+                    const shapeFields = type.shapes || [];
                     return (
                       <div
-                        key={t.id}
+                        key={type.id}
                         className={`rounded-xl border px-3 py-3 ${
                           checked ? 'border-accent/40 bg-primary-soft/30' : 'border-black/10 bg-surface'
                         }`}
@@ -454,43 +479,43 @@ export default function AddOrderPage() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => toggleOrderType(t.id)}
+                            onChange={() => toggleOrderType(type.id)}
                           />
-                          {t.name}
+                          {type.name}
                         </label>
                         {checked && (
                           <div className="mt-3 space-y-3 border-t border-black/5 pt-3">
                             <div className="grid max-w-md gap-3 sm:grid-cols-2">
                               <Input
-                                label="Price per item (₹) *"
+                                label={t('newOrder.pricePerItem')}
                                 type="number"
-                                value={typePrices[t.id] ?? ''}
+                                value={typePrices[type.id] ?? ''}
                                 onChange={(e) => {
-                                  setTypePrices((p) => ({ ...p, [t.id]: e.target.value }));
-                                  setErrors((err) => ({ ...err, [`price_${t.id}`]: '' }));
+                                  setTypePrices((p) => ({ ...p, [type.id]: e.target.value }));
+                                  setErrors((err) => ({ ...err, [`price_${type.id}`]: '' }));
                                 }}
-                                error={errors[`price_${t.id}`]}
+                                error={errors[`price_${type.id}`]}
                               />
                               <Input
-                                label="Quantity *"
+                                label={t('newOrder.quantity')}
                                 type="number"
                                 min={1}
-                                value={typeQuantities[t.id] ?? '1'}
+                                value={typeQuantities[type.id] ?? '1'}
                                 onChange={(e) => {
-                                  setTypeQuantities((q) => ({ ...q, [t.id]: e.target.value }));
-                                  setErrors((err) => ({ ...err, [`qty_${t.id}`]: '' }));
+                                  setTypeQuantities((q) => ({ ...q, [type.id]: e.target.value }));
+                                  setErrors((err) => ({ ...err, [`qty_${type.id}`]: '' }));
                                 }}
-                                error={errors[`qty_${t.id}`]}
+                                error={errors[`qty_${type.id}`]}
                               />
                             </div>
                             {typeFields.length > 0 && (
                               <div>
                                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                                  Measurements for {t.name}
+                                  {t('newOrder.measurementsFor', { name: type.name })}
                                 </p>
                                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                   {typeFields.map((m) => {
-                                    const mKey = typeMeasurementKey(t.id, m);
+                                    const mKey = typeMeasurementKey(type.id, m);
                                     return (
                                       <Input
                                         key={mKey}
@@ -509,6 +534,36 @@ export default function AddOrderPage() {
                                 </div>
                               </div>
                             )}
+                            {shapeFields.length > 0 && (
+                              <div>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                                  {t('newOrder.shaklFor', { name: type.name })}
+                                </p>
+                                <div className="flex flex-wrap gap-3">
+                                  {shapeFields.map((shape) => {
+                                    const checked = (typeShapeSelection[type.id] || []).includes(shape);
+                                    return (
+                                      <label
+                                        key={`${type.id}-shape-${shape}`}
+                                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                                          checked
+                                            ? 'border-accent bg-primary-soft/40 font-semibold text-ink'
+                                            : 'border-black/10 bg-surface text-ink-secondary'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => toggleShapeOption(type.id, shape)}
+                                          className="h-4 w-4 rounded border-black/20 text-accent"
+                                        />
+                                        {shape}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -520,7 +575,7 @@ export default function AddOrderPage() {
 
               {selectedTypeIds.length > 0 && (
                 <div className="mt-4 max-w-xs">
-                  <Input label="Color" value={color} onChange={(e) => setColor(e.target.value)} />
+                  <Input label={t('common.color')} value={color} onChange={(e) => setColor(e.target.value)} />
                 </div>
               )}
             </div>
@@ -528,22 +583,22 @@ export default function AddOrderPage() {
 
           <div className="space-y-5 xl:col-span-5">
             <div className="form-panel p-4 lg:p-5 xl:sticky xl:top-4">
-              <SectionTitle title="Total & Payment" />
+              <SectionTitle title={t('newOrder.totalPayment')} />
               {selectedTypes.length > 0 && (
                 <ul className="mb-2 space-y-1 text-sm text-ink-secondary">
-                  {selectedTypes.map((t) => {
-                    const qty = Math.max(1, parseInt(typeQuantities[t.id], 10) || 1);
-                    const unit = Number(typePrices[t.id] || 0);
+                  {selectedTypes.map((type) => {
+                    const qty = Math.max(1, parseInt(typeQuantities[type.id], 10) || 1);
+                    const unit = Number(typePrices[type.id] || 0);
                     return (
-                      <li key={t.id} className="flex justify-between gap-2">
+                      <li key={type.id} className="flex justify-between gap-2">
                         <span>
-                          {t.name}{' '}
+                          {type.name}{' '}
                           <span className="text-ink-muted">
                             ({qty} × ₹{unit.toLocaleString()})
                           </span>
                         </span>
                         <span className="font-semibold text-ink">
-                          ₹{lineTotalForType(t.id).toLocaleString()}
+                          ₹{lineTotalForType(type.id).toLocaleString()}
                         </span>
                       </li>
                     );
@@ -551,26 +606,27 @@ export default function AddOrderPage() {
                 </ul>
               )}
               <div className="my-3 rounded-xl bg-emerald-50 px-4 py-2">
-                <p className="text-xs text-ink-muted">Total Amount (sum of selected types)</p>
+                <p className="text-xs text-ink-muted">{t('newOrder.totalAmount')}</p>
                 <p className="text-xl font-extrabold text-success">₹{totalAmount.toLocaleString()}</p>
               </div>
 
               <p className="mb-2 text-xs text-ink-muted">
-                Prepaid credit applies to this order first. Cash covers the rest; extra cash reduces old
-                remaining or adds credit.
+                {t('newOrder.paymentHint')}
               </p>
               {checkoutCustomer && prepaidAvailable > 0 && totalAmount > 0 && (
                 <p className="mb-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                  Will use up to ₹{Math.min(prepaidAvailable, totalAmount).toLocaleString()} from prepaid credit
-                  (balance ₹{prepaidAvailable.toLocaleString()}).
+                  {t('newOrder.creditWillUse', {
+                    amount: Math.min(prepaidAvailable, totalAmount).toLocaleString(),
+                    balance: prepaidAvailable.toLocaleString(),
+                  })}
                 </p>
               )}
               <div className="mb-2">
-                <p className="mb-1 text-sm font-medium text-ink">Has the customer paid?</p>
+                <p className="mb-1 text-sm font-medium text-ink">{t('newOrder.hasPaid')}</p>
                 <div className="flex gap-4">
                   {[
-                    ['yes', 'Yes'],
-                    ['no', 'No'],
+                    ['yes', t('common.yes')],
+                    ['no', t('common.no')],
                   ].map(([val, label]) => (
                     <label key={val} className="flex items-center gap-2 text-sm">
                       <input
@@ -593,12 +649,12 @@ export default function AddOrderPage() {
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 {hasCustomerPaid === 'yes' && (
                   <Input
-                    label="Payment amount (₹)"
+                    label={t('newOrder.paymentAmount')}
                     type="number"
                     value={cashPaid}
                     onChange={(e) => setCashPaid(e.target.value)}
                     error={errors.cashPaid}
-                    placeholder="Amount received now"
+                    placeholder={t('newOrder.amountNow')}
                   />
                 )}
               </div>
@@ -607,26 +663,26 @@ export default function AddOrderPage() {
                 <div className="mt-3 rounded-xl border border-black/5 bg-background px-3 py-2 text-xs leading-relaxed">
                   {checkoutPreview.walletUsed > 0 && (
                     <p>
-                      Prepaid credit applied: <strong>₹{checkoutPreview.walletUsed.toLocaleString()}</strong>
+                      {t('salesExtra.prepaidApplied')}: <strong>₹{checkoutPreview.walletUsed.toLocaleString()}</strong>
                     </p>
                   )}
                   <p>
-                    Paid on this order: <strong>₹{orderPaidDisplay.toLocaleString()}</strong>
+                    {t('detail.paidOnOrder')}: <strong>₹{orderPaidDisplay.toLocaleString()}</strong>
                   </p>
                   <p>
-                    Remaining:{' '}
+                    {t('common.remaining')}:{' '}
                     <strong className={orderRemainingDisplay > 0 ? 'text-danger' : 'text-success'}>
                       ₹{orderRemainingDisplay.toLocaleString()}
                     </strong>
                   </p>
                   {checkoutPreview.cashAppliedToDebt > 0 && (
                     <p className="mt-1 text-success">
-                      Extra ₹{checkoutPreview.cashAppliedToDebt.toLocaleString()} → old remaining
+                      {t('newOrder.extraDebt', { amount: checkoutPreview.cashAppliedToDebt.toLocaleString() })}
                     </p>
                   )}
                   {checkoutPreview.surplusToPrepaid > 0 && (
                     <p className="text-success">
-                      Extra ₹{checkoutPreview.surplusToPrepaid.toLocaleString()} → prepaid credit
+                      {t('newOrder.extraCredit', { amount: checkoutPreview.surplusToPrepaid.toLocaleString() })}
                     </p>
                   )}
                 </div>
@@ -635,7 +691,7 @@ export default function AddOrderPage() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 {employees.length > 0 && (
                   <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={selectClass}>
-                    <option value="">Select employee (optional)…</option>
+                    <option value="">{t('newOrder.employee')}</option>
                     {employees.map((e) => (
                       <option key={e.id} value={e.id}>
                         {e.name}
@@ -644,25 +700,25 @@ export default function AddOrderPage() {
                   </select>
                 )}
                 <Input
-                  label="Order Date (Solar) *"
+                  label={t('newOrder.orderDate')}
                   value={solarDate}
                   onChange={(e) => setSolarDate(e.target.value)}
                   error={errors.solarDate}
                 />
                 <Input
-                  label="Delivery Date *"
-                  type="date"
+                  label={t('newOrder.delivery')}
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
+                  placeholder={getTodaySolar()}
                   error={errors.delivery}
                 />
-                <Input label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Input label={t('common.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                <span>Token preview: ORD-{String(orders.length + 1).padStart(4, '0')}</span>
+                <span>{t('newOrder.tokenPreview', { token: `ORD-${String(orders.length + 1).padStart(4, '0')}` })}</span>
                 <Button className="shrink-0" onClick={() => validate() && setConfirmOpen(true)}>
-                  Review & Create Order
+                  {t('newOrder.review')}
                 </Button>
               </div>
             </div>
@@ -672,8 +728,8 @@ export default function AddOrderPage() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Confirm Order"
-        subtitle="Review all details before saving"
+        title={t('newOrder.confirmTitle')}
+        subtitle={t('newOrder.confirmSubtitle')}
         rows={confirmRows}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleConfirm}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { User, Phone } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
@@ -57,6 +58,7 @@ function buildMeasurementRows(customer, fieldDefs) {
 }
 
 export default function CustomerDetailsModal({ open, customer, onClose }) {
+  const { t } = useTranslation();
   const fieldDefs = useMeasurementFieldNames(open);
   const rows = useMemo(
     () => (customer ? buildMeasurementRows(customer, fieldDefs) : []),
@@ -70,11 +72,11 @@ export default function CustomerDetailsModal({ open, customer, onClose }) {
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-background px-3 py-2">
-            <p className="text-xs text-ink-muted">Phone</p>
+            <p className="text-xs text-ink-muted">{t('common.phone')}</p>
             <p className="font-semibold">{customer.phone}</p>
           </div>
           <div className="rounded-xl bg-background px-3 py-2">
-            <p className="text-xs text-ink-muted">Added</p>
+            <p className="text-xs text-ink-muted">{t('customers.added')}</p>
             <p className="font-semibold">
               {customer.addedDate ? new Date(customer.addedDate).toLocaleDateString() : '—'}
             </p>
@@ -82,9 +84,9 @@ export default function CustomerDetailsModal({ open, customer, onClose }) {
         </div>
 
         <div>
-          <p className="mb-2 text-sm font-semibold text-ink">All measurements</p>
+          <p className="mb-2 text-sm font-semibold text-ink">{t('modals.allMeasurements')}</p>
           {rows.length === 0 ? (
-            <p className="text-sm text-ink-muted">No measurement fields configured in Adds.</p>
+            <p className="text-sm text-ink-muted">{t('modals.noMeasurements')}</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {rows.map(({ key, label, value }) => (
@@ -109,6 +111,7 @@ export function EditCustomerModal({
   onClose,
   onSave,
 }) {
+  const { t } = useTranslation();
   const fieldDefs = useMeasurementFieldNames(open);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -166,15 +169,15 @@ export function EditCustomerModal({
   const collectedAmount = Math.max(0, initialDebt - nextRemaining);
 
   return (
-    <Modal open={open} onClose={onClose} title="Edit Order Customer" subtitle={customer.tokenNumber} size="lg">
-      <Input label="Name *" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
-      <Input label="Phone *" value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
+    <Modal open={open} onClose={onClose} title={t('modals.editOrderCustomer')} subtitle={customer.tokenNumber} size="lg">
+      <Input label={t('addsExtra.nameRequired')} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
+      <Input label={t('addsExtra.phoneRequired')} value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
 
       <div className="my-4 rounded-xl border border-primary-soft bg-background p-4">
-        <p className="mb-3 text-sm font-semibold text-ink">Balance</p>
+        <p className="mb-3 text-sm font-semibold text-ink">{t('common.balance')}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
-            label="Remaining (debt) ₹"
+            label={t('customers.remainingDebt')}
             type="number"
             min="0"
             value={remainingDebt}
@@ -185,7 +188,7 @@ export function EditCustomerModal({
             error={errors.remaining}
           />
           <Input
-            label="Credit balance ₹"
+            label={t('customers.prepaidCredit')}
             type="number"
             min="0"
             value={creditBalance}
@@ -214,7 +217,7 @@ export function EditCustomerModal({
         )}
       </div>
 
-      <p className="mb-2 text-sm font-semibold text-ink">Measurements</p>
+      <p className="mb-2 text-sm font-semibold text-ink">{t('modals.measurements')}</p>
       <div className="grid max-h-[40vh] gap-3 overflow-y-auto sm:grid-cols-2">
         {fieldDefs.map(({ id, name: fieldName }) => (
           <Input
@@ -264,7 +267,7 @@ export function EditCustomerModal({
           }
         }}
       >
-        {saving ? 'Saving…' : 'Save Changes'}
+        {saving ? t('addsExtra.saving') : t('modals.saveChanges')}
       </Button>
     </Modal>
   );
@@ -283,6 +286,7 @@ export function SalesCustomerDetailsModal({
   onEdit,
   onDelete,
 }) {
+  const { t } = useTranslation();
   if (!customer) return null;
   const total = balance?.totalAmount ?? 0;
   const paid = balance?.paidAmount ?? 0;
@@ -290,15 +294,15 @@ export function SalesCustomerDetailsModal({
   const prepaid = balance?.prepaidCredit ?? Number(customer.creditBalance || 0);
 
   return (
-    <Modal open={open} onClose={onClose} title={customer.name} subtitle="Sales customer" size="lg">
+    <Modal open={open} onClose={onClose} title={customer.name} subtitle={t('modals.salesCustomer')} size="lg">
       <div className="space-y-3 text-sm">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-background px-3 py-2">
-            <p className="text-xs text-ink-muted">Phone</p>
+            <p className="text-xs text-ink-muted">{t('common.phone')}</p>
             <p className="font-semibold">{customer.phone || '—'}</p>
           </div>
           <div className="rounded-xl bg-background px-3 py-2">
-            <p className="text-xs text-ink-muted">Added</p>
+            <p className="text-xs text-ink-muted">{t('customers.added')}</p>
             <p className="font-semibold">
               {customer.addedDate ? new Date(customer.addedDate).toLocaleDateString() : '—'}
             </p>
@@ -306,35 +310,35 @@ export function SalesCustomerDetailsModal({
         </div>
 
         <div className="rounded-xl border border-primary-soft bg-background p-4">
-          <p className="mb-3 text-sm font-semibold text-ink">Payment summary</p>
+          <p className="mb-3 text-sm font-semibold text-ink">{t('modals.paymentSummary')}</p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-xs text-ink-muted">Total sales</p>
+              <p className="text-xs text-ink-muted">{t('customers.totalSales')}</p>
               <p className="text-lg font-bold text-ink">{formatRupee(total)}</p>
             </div>
             <div>
-              <p className="text-xs text-ink-muted">Paid</p>
+              <p className="text-xs text-ink-muted">{t('common.paid')}</p>
               <p className="text-lg font-bold text-success">{formatRupee(paid)}</p>
             </div>
             <div>
-              <p className="text-xs text-ink-muted">Remaining (debt)</p>
+              <p className="text-xs text-ink-muted">{t('customers.remainingDebt')}</p>
               <p className={`text-lg font-bold ${credit > 0 ? 'text-danger' : 'text-success'}`}>
                 {formatRupee(credit)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-ink-muted">Prepaid credit</p>
+              <p className="text-xs text-ink-muted">{t('customers.prepaidCredit')}</p>
               <p className="text-lg font-bold text-success">{formatRupee(prepaid)}</p>
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-muted">
-            {balance?.saleCount ?? 0} sale(s) linked to this customer
+            {t('sales.historySubtitle', { count: balance?.saleCount ?? 0 })}
           </p>
         </div>
 
         {recentSales.length > 0 && (
           <div>
-            <p className="mb-2 text-sm font-semibold text-ink">Recent sales</p>
+            <p className="mb-2 text-sm font-semibold text-ink">{t('modals.recentSales')}</p>
             <div className="max-h-48 space-y-2 overflow-y-auto">
               {recentSales.map((sale) => {
                 const saleTotal = Number(sale.totalAmount || 0);
@@ -346,11 +350,11 @@ export function SalesCustomerDetailsModal({
                       <span>{sale.invoiceNumber}</span>
                       <span>{formatRupee(saleTotal)}</span>
                     </div>
-                    <p className="text-ink-muted">{sale.productName} · {sale.saleType}</p>
+                    <p className="text-ink-muted">{sale.productName} · {t(`ledger.${sale.saleType}`, { defaultValue: sale.saleType })}</p>
                     <div className="mt-1 flex justify-between text-ink-muted">
-                      <span>Paid {formatRupee(salePaid)}</span>
+                      <span>{t('common.paid')} {formatRupee(salePaid)}</span>
                       <span className={saleCredit > 0 ? 'font-semibold text-danger' : 'text-success'}>
-                        Remaining {formatRupee(saleCredit)}
+                        {t('common.remaining')} {formatRupee(saleCredit)}
                       </span>
                     </div>
                   </div>
@@ -361,9 +365,9 @@ export function SalesCustomerDetailsModal({
         )}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={() => onEdit(customer)}>Edit</Button>
+        <Button onClick={() => onEdit(customer)}>{t('common.edit')}</Button>
         <Button variant="danger" onClick={() => onDelete(customer)}>
-          Delete
+          {t('common.delete')}
         </Button>
       </div>
     </Modal>
@@ -371,6 +375,7 @@ export function SalesCustomerDetailsModal({
 }
 
 export function AddOrderCustomerModal({ open, onClose, onSave }) {
+  const { t } = useTranslation();
   const fieldDefs = useMeasurementFieldNames(open);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -425,12 +430,12 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Customer" subtitle="Order customer with measurements" size="xl">
+    <Modal open={open} onClose={onClose} title={t('modals.addCustomer')} subtitle={t('modals.addCustomerHint')} size="xl">
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
-          <Input label="Customer Name *" icon={User} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
+          <Input label={t('addsExtra.nameRequired')} icon={User} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
           <Input
-            label="Phone Number *"
+            label={t('addsExtra.phoneRequired')}
             icon={Phone}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -439,7 +444,7 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
           />
         </div>
         <div>
-          <p className="mb-2 text-sm font-semibold text-ink">Measurements *</p>
+          <p className="mb-2 text-sm font-semibold text-ink">{t('modals.measurements')} *</p>
           {fieldDefs.length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-ink-secondary">
               No measurement fields yet.{' '}
@@ -471,10 +476,10 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="button" onClick={handleSave} disabled={saving || fieldDefs.length === 0}>
-          {saving ? 'Saving…' : 'Save Customer'}
+          {saving ? t('addsExtra.saving') : t('modals.saveCustomer')}
         </Button>
       </div>
     </Modal>
@@ -482,6 +487,7 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
 }
 
 export function AddSalesCustomerModal({ open, onClose, onSave }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [errors, setErrors] = useState({});
@@ -504,11 +510,11 @@ export function AddSalesCustomerModal({ open, onClose, onSave }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Sales Customer" size="md">
-      <Input label="Name *" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
-      <Input label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+    <Modal open={open} onClose={onClose} title={t('modals.addSalesCustomer')} size="md">
+      <Input label={t('addsExtra.nameRequired')} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
+      <Input label={`${t('common.phone')} (${t('common.optional')})`} value={phone} onChange={(e) => setPhone(e.target.value)} />
       <Button className="mt-2" onClick={handleSave}>
-        Save Customer
+        {t('modals.saveCustomer')}
       </Button>
     </Modal>
   );
@@ -522,6 +528,7 @@ export function EditSalesCustomerModal({
   onClose,
   onSave,
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -564,36 +571,36 @@ export function EditSalesCustomerModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Edit Sales Customer" subtitle="Update details or record a payment" size="md">
-      <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-      <Input label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+    <Modal open={open} onClose={onClose} title={t('modals.editSalesCustomer')} subtitle={t('modals.editSalesHint')} size="md">
+      <Input label={t('common.name')} value={name} onChange={(e) => setName(e.target.value)} />
+      <Input label={`${t('common.phone')} (${t('common.optional')})`} value={phone} onChange={(e) => setPhone(e.target.value)} />
 
       <div className="my-4 rounded-xl border border-primary-soft bg-background p-4">
-        <p className="mb-3 text-sm font-semibold text-ink">Credit / payment</p>
+        <p className="mb-3 text-sm font-semibold text-ink">{t('modals.creditPayment')}</p>
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg bg-surface px-3 py-2">
-            <p className="text-xs text-ink-muted">Remaining debt</p>
+            <p className="text-xs text-ink-muted">{t('modals.remainingDebt')}</p>
             <p className={`text-lg font-bold ${debt > 0 ? 'text-danger' : 'text-success'}`}>
               {formatRupee(debt)}
             </p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
-            <p className="text-xs text-ink-muted">Prepaid credit now</p>
+            <p className="text-xs text-ink-muted">{t('modals.prepaidNow')}</p>
             <p className="text-lg font-bold text-success">{formatRupee(prepaid)}</p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
-            <p className="text-xs text-ink-muted">After payment — debt</p>
+            <p className="text-xs text-ink-muted">{t('modals.afterDebt')}</p>
             <p className={`text-lg font-bold ${newDebt > 0 ? 'text-danger' : 'text-success'}`}>
               {formatRupee(newDebt)}
             </p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
-            <p className="text-xs text-ink-muted">After payment — prepaid</p>
+            <p className="text-xs text-ink-muted">{t('modals.afterPrepaid')}</p>
             <p className="text-lg font-bold text-success">{formatRupee(newPrepaid)}</p>
           </div>
         </div>
         <Input
-          label="Cash payment (₹)"
+          label={t('sales.cash')}
           type="number"
           min="0"
           value={paymentAmount}
@@ -602,32 +609,33 @@ export function EditSalesCustomerModal({
             setPayError('');
           }}
           error={payError}
-          placeholder="Pays old remaining first; extra saved as prepaid credit"
+          placeholder={t('newOrder.paymentHint')}
         />
         <p className="mt-1 text-xs text-ink-muted">
-          Payment clears oldest unpaid sales first. Any amount left after debt is added to prepaid credit.
+          {t('sales.paymentHint')}
         </p>
       </div>
 
       <Button disabled={saving} onClick={handleSave}>
-        {saving ? 'Saving…' : 'Save Changes'}
+        {saving ? t('addsExtra.saving') : t('modals.saveChanges')}
       </Button>
     </Modal>
   );
 }
 
 export function DeleteConfirmModal({ open, name, onCancel, onConfirm }) {
+  const { t } = useTranslation();
   return (
-    <Modal open={open} onClose={onCancel} title="Delete Record?" size="sm">
+    <Modal open={open} onClose={onCancel} title={t('modals.deleteRecord')} size="sm">
       <p className="text-sm text-ink-muted">
-        Are you sure you want to delete <strong>{name}</strong>? This cannot be undone.
+        {t('modals.deleteHint', { name })}
       </p>
       <div className="mt-6 flex gap-3">
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button variant="danger" onClick={onConfirm}>
-          Delete
+          {t('common.delete')}
         </Button>
       </div>
     </Modal>

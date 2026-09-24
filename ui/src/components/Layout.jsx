@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Sidebar from './Sidebar.jsx';
@@ -13,6 +14,7 @@ function ensureStore() {
 }
 
 export default function Layout() {
+  const { t, i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -26,7 +28,7 @@ export default function Layout() {
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-accent/20 border-t-accent" />
-          <p className="mt-4 text-sm font-medium text-ink-muted">Loading Khayati…</p>
+          <p className="mt-4 text-sm font-medium text-ink-muted">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -50,7 +52,7 @@ export default function Layout() {
       </div>
 
       <Toaster
-        position="top-right"
+        position={i18n.dir() === 'rtl' ? 'top-left' : 'top-right'}
         richColors
         closeButton
         toastOptions={{ className: 'font-sans' }}

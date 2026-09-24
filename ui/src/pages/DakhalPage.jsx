@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Area,
   AreaChart,
@@ -32,6 +33,7 @@ function getTransactionGroup(tx) {
 }
 
 export default function DakhalPage() {
+  const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All Types');
@@ -53,7 +55,10 @@ export default function DakhalPage() {
     return { income, expense, profit: income - expense };
   }, [transactions]);
 
-  const trendData = useMemo(() => getDailyIncomeTrend(transactions), [transactions]);
+  const trendData = useMemo(
+    () => getDailyIncomeTrend(transactions, 14, i18n.language === 'fa' ? 'fa-AF' : 'ps-AF'),
+    [transactions, i18n.language],
+  );
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -72,22 +77,22 @@ export default function DakhalPage() {
   }, [transactions, categoryFilter, typeFilter, query]);
 
   const columns = [
-    { key: 'title', label: 'Description', render: (r) => <span className="font-medium text-ink">{r.title}</span> },
-    { key: 'type', label: 'Type', render: (r) => r.type },
-    { key: 'date', label: 'Date', render: (r) => r.date },
+    { key: 'title', label: t('dakhal.description'), render: (r) => <span className="font-medium text-ink">{r.title}</span> },
+    { key: 'type', label: t('common.type'), render: (r) => t(`ledger.${r.type}`, { defaultValue: r.type }) },
+    { key: 'date', label: t('common.date'), render: (r) => r.date },
     {
       key: 'amount',
-      label: 'Amount',
+      label: t('common.amount'),
       render: (r) => (
         <span className={`font-bold ${r.category === 'income' ? 'text-success' : 'text-danger'}`}>
           {r.category === 'income' ? '+' : '-'}{formatCurrency(r.amount)}
         </span>
       ),
     },
-    { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'status', label: t('common.status'), render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       className: 'w-28',
       render: (r) => <TableRowActions onView={() => setSelected(r)} />,
     },
@@ -96,18 +101,18 @@ export default function DakhalPage() {
   return (
     <>
       <PageShell
-        title="Dakhal — Finance Ledger"
-        subtitle="Track all income and expense transactions in one place"
-        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Dakhal' }]}
+        title={t('dakhal.title')}
+        subtitle={t('dakhal.subtitle')}
+        breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('nav.items.dakhal') }]}
       >
         <section className="mb-8 grid gap-4 sm:grid-cols-3">
-          <KpiCard title="Total Income" value={formatCurrency(summary.income)} icon={TrendingUp} accent="success" />
-          <KpiCard title="Total Expense" value={formatCurrency(summary.expense)} icon={TrendingDown} accent="danger" />
-          <KpiCard title="Net Profit" value={formatCurrency(summary.profit)} icon={Wallet} accent="navy" />
+          <KpiCard title={t('dakhal.income')} value={formatCurrency(summary.income)} icon={TrendingUp} accent="success" />
+          <KpiCard title={t('dakhal.expense')} value={formatCurrency(summary.expense)} icon={TrendingDown} accent="danger" />
+          <KpiCard title={t('dakhal.profit')} value={formatCurrency(summary.profit)} icon={Wallet} accent="navy" />
         </section>
 
         <section className="mb-8">
-          <ChartCard title="Daily Cash Flow" subtitle="Income vs expense over the last 14 days">
+          <ChartCard title={t('dakhalExtra.cashFlow')} subtitle={t('dakhalExtra.cashFlowHint')}>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
@@ -115,8 +120,8 @@ export default function DakhalPage() {
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${v / 1000}k`} />
                   <Tooltip formatter={(v) => formatCurrency(v)} />
-                  <Area type="monotone" dataKey="income" stroke="#00a76f" fill="#00a76f33" strokeWidth={2} name="Income" />
-                  <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="#ff563033" strokeWidth={2} name="Expense" />
+                  <Area type="monotone" dataKey="income" stroke="#00a76f" fill="#00a76f33" strokeWidth={2} name={t('dashboard.income')} />
+                  <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="#ff563033" strokeWidth={2} name={t('dashboard.expense')} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -125,29 +130,29 @@ export default function DakhalPage() {
 
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-md flex-1">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search transactions…" />
+            <SearchInput value={query} onChange={setQuery} placeholder={t('dakhal.search')} />
           </div>
           <div className="flex flex-wrap gap-2">
             {CATEGORY_FILTERS.map((f) => (
-              <button key={f} type="button" onClick={() => setCategoryFilter(f)} className={`filter-chip ${categoryFilter === f ? 'filter-chip-active' : ''}`}>{f}</button>
+              <button key={f} type="button" onClick={() => setCategoryFilter(f)} className={`filter-chip ${categoryFilter === f ? 'filter-chip-active' : ''}`}>{t(`filters.${f}`)}</button>
             ))}
           </div>
         </div>
         <div className="mb-5 flex flex-wrap gap-2">
           {TYPE_FILTERS.map((f) => (
-            <button key={f} type="button" onClick={() => setTypeFilter(f)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${typeFilter === f ? 'bg-primary-soft text-navy' : 'bg-background text-ink-muted'}`}>{f}</button>
+            <button key={f} type="button" onClick={() => setTypeFilter(f)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${typeFilter === f ? 'bg-primary-soft text-navy' : 'bg-background text-ink-muted'}`}>{t(`filters.${f}`)}</button>
           ))}
         </div>
 
-        <DataTable columns={columns} rows={filtered} onRowClick={setSelected} emptyMessage="No transactions found." />
+        <DataTable columns={columns} rows={filtered} onRowClick={setSelected} emptyMessage={t('dakhalExtra.empty')} />
       </PageShell>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.title} subtitle={selected?.type}>
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.title} subtitle={selected ? t(`ledger.${selected.type}`, { defaultValue: selected.type }) : ''}>
         {selected && (
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-ink-muted">Amount</span><span className="font-bold">{formatCurrency(selected.amount)}</span></div>
-            <div className="flex justify-between"><span className="text-ink-muted">Category</span><span className="font-bold capitalize">{selected.category}</span></div>
-            <div className="flex justify-between"><span className="text-ink-muted">Date</span><span className="font-bold">{selected.date}</span></div>
+            <div className="flex justify-between"><span className="text-ink-muted">{t('common.amount')}</span><span className="font-bold">{formatCurrency(selected.amount)}</span></div>
+            <div className="flex justify-between"><span className="text-ink-muted">{t('dakhalExtra.category')}</span><span className="font-bold">{selected.category === 'income' ? t('dashboard.income') : t('dashboard.expense')}</span></div>
+            <div className="flex justify-between"><span className="text-ink-muted">{t('common.date')}</span><span className="font-bold">{selected.date}</span></div>
             <StatusBadge status={selected.status} />
           </div>
         )}

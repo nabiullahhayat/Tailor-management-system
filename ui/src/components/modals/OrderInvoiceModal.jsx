@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Printer } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
@@ -17,6 +18,7 @@ export default function OrderInvoiceModal({
   customerPhone,
   onClose,
 }) {
+  const { t } = useTranslation();
   if (!order) return null;
 
   const total = Number(order.totalAmount || 0);
@@ -43,36 +45,36 @@ export default function OrderInvoiceModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Order Invoice" subtitle={order.tokenNumber} size="md">
+    <Modal open={open} onClose={onClose} title={t('modals.orderInvoice')} subtitle={order.tokenNumber} size="md">
       <div id="order-invoice-print" className="order-invoice-root mx-auto max-w-[80mm] font-mono text-[13px] leading-snug text-black">
         <div className="text-center">
           <p className="text-base font-bold uppercase">{shopName}</p>
-          <p className="text-xs">Tailoring Invoice</p>
+          <p className="text-xs">{t('modals.tailoringInvoice')}</p>
           <p className="text-xs">{line('=')}</p>
         </div>
 
-        <p className="mt-2">Order: {order.tokenNumber}</p>
-        <p>Inv: {order.invoiceNumber || '—'}</p>
-        <p>Date: {dateStr}</p>
+        <p className="mt-2">{t('detail.order')}: {order.tokenNumber}</p>
+        <p>{t('detail.inv')}: {order.invoiceNumber || '—'}</p>
+        <p>{t('common.date')}: {dateStr}</p>
         <p className="text-xs">{line('-')}</p>
 
-        <p>Customer: {order.customerName}</p>
-        {customerPhone ? <p>Phone: {customerPhone}</p> : null}
-        <p>Type: {order.orderType}</p>
-        {order.color ? <p>Color: {order.color}</p> : null}
-        {order.deliveryDate ? <p>Delivery: {String(order.deliveryDate).split('T')[0]}</p> : null}
+        <p>{t('common.customer')}: {order.customerName}</p>
+        {customerPhone ? <p>{t('common.phone')}: {customerPhone}</p> : null}
+        <p>{t('common.type')}: {order.orderType}</p>
+        {order.color ? <p>{t('common.color')}: {order.color}</p> : null}
+        {order.deliveryDate ? <p>{t('common.deliveryDate')}: {String(order.deliveryDate).split('T')[0]}</p> : null}
         <p className="text-xs">{line('-')}</p>
 
-        <p className="font-bold">Item</p>
+        <p className="font-bold">{t('modals.item')}</p>
         <p>
           {order.orderType} x{qty} @ {formatMoney(unit)}
         </p>
-        <p className="text-right font-bold">Total: {formatMoney(total)}</p>
+        <p className="text-right font-bold">{t('common.total')}: {formatMoney(total)}</p>
 
         {Object.keys(measurements).length > 0 && (
           <>
             <p className="mt-2 text-xs">{line('-')}</p>
-            <p className="font-bold">Measurements</p>
+            <p className="font-bold">{t('modals.measurements')}</p>
             {Object.entries(measurements).map(([k, v]) => (
               <p key={k}>
                 {k}: {v}
@@ -83,32 +85,32 @@ export default function OrderInvoiceModal({
 
         <p className="mt-2 text-xs">{line('-')}</p>
         {Number(order.bookingCashReceived || 0) > 0 ? (
-          <p>Cash received: {formatMoney(order.bookingCashReceived)}</p>
+          <p>{t('detail.cashReceived')}: {formatMoney(order.bookingCashReceived)}</p>
         ) : null}
-        <p>Paid on order: {formatMoney(paid)}</p>
+        <p>{t('detail.paidOnOrderShort')}: {formatMoney(paid)}</p>
         {Number(order.bookingAppliedToDebt || 0) > 0 ? (
-          <p>To old remaining: {formatMoney(order.bookingAppliedToDebt)}</p>
+          <p>{t('detail.toOld')}: {formatMoney(order.bookingAppliedToDebt)}</p>
         ) : null}
-        <p>Remaining: {formatMoney(remaining)}</p>
-        <p>Status: {order.paymentStatus || 'Pending'}</p>
+        <p>{t('common.remaining')}: {formatMoney(remaining)}</p>
+        <p>{t('common.status')}: {t(`status.${order.paymentStatus || 'Pending'}`)}</p>
 
         {order.notes ? (
           <>
             <p className="text-xs">{line('-')}</p>
-            <p>Notes: {order.notes}</p>
+            <p>{t('common.notes')}: {order.notes}</p>
           </>
         ) : null}
 
         <p className="mt-3 text-center text-xs">{line('=')}</p>
-        <p className="text-center text-xs">Thank you</p>
+        <p className="text-center text-xs">{t('detail.thankYou')}</p>
       </div>
 
       <div className="order-invoice-actions mt-6 flex flex-wrap gap-2">
         <Button type="button" variant="outline" onClick={onClose}>
-          Close
+          {t('modals.close')}
         </Button>
         <Button type="button" onClick={handlePrint}>
-          <Printer size={16} /> Print (Xprinter)
+          <Printer size={16} /> {t('salesExtra.printInvoice')}
         </Button>
       </div>
     </Modal>

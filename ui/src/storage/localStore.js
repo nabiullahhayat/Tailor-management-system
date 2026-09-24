@@ -444,6 +444,7 @@ export async function createOrderType(data) {
     id: generateId(),
     name: data.name.trim(),
     measurements: (data.measurements || []).filter((m) => m && m.trim()).map((m) => m.trim()),
+    shapes: (data.shapes || []).filter((s) => s && s.trim()).map((s) => s.trim()),
     createdAt: now,
     updatedAt: now,
   };
@@ -464,6 +465,9 @@ export async function updateOrderType(id, data) {
     measurements: data.measurements !== undefined
       ? data.measurements.filter((m) => m && m.trim()).map((m) => m.trim())
       : types[index].measurements,
+    shapes: data.shapes !== undefined
+      ? data.shapes.filter((s) => s && s.trim()).map((s) => s.trim())
+      : types[index].shapes || [],
     updatedAt: new Date().toISOString(),
   };
   types[index] = updated;
@@ -1181,12 +1185,27 @@ export async function saveTransactions(transactions) {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+function normalizeAppSettings(settings) {
+  const s = { ...settings };
+  if (s.appIconPath) {
+    s.appIconDataUrl = '';
+  } else if (typeof s.appIconDataUrl === 'string' && s.appIconDataUrl.length > 80_000) {
+    s.appIconDataUrl = '';
+  }
+  return s;
+}
+
 export async function getSettings() {
   await initializeStore();
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.settings);
   if (!raw) return { ...DEFAULT_APP_SETTINGS };
   try {
-    return JSON.parse(raw);
+    const parsed = normalizeAppSettings(JSON.parse(raw));
+    const rawAgain = JSON.stringify(parsed);
+    if (rawAgain.length < raw.length) {
+      await AsyncStorage.setItem(STORAGE_KEYS.settings, rawAgain);
+    }
+    return parsed;
   } catch {
     return { ...DEFAULT_APP_SETTINGS };
   }
@@ -1194,7 +1213,7 @@ export async function getSettings() {
 
 export async function updateSettings(updates) {
   const current = await getSettings();
-  const updated = { ...current, ...updates };
+  const updated = normalizeAppSettings({ ...current, ...updates });
   await AsyncStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(updated));
   return updated;
 }

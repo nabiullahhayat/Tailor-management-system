@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
 
 export default function ConfirmModal({
@@ -5,11 +6,12 @@ export default function ConfirmModal({
   title,
   subtitle,
   rows = [],
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useTranslation();
   return (
     <Modal open={open} onClose={onCancel} title={title} subtitle={subtitle} size="md">
       <div className="space-y-3">
@@ -37,14 +39,14 @@ export default function ConfirmModal({
           onClick={onCancel}
           className="rounded-xl border border-black/10 px-5 py-2.5 text-sm font-semibold text-ink-muted transition hover:bg-background"
         >
-          {cancelLabel}
+          {cancelLabel || t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={onConfirm}
           className="rounded-xl bg-navy px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:bg-navy-light"
         >
-          {confirmLabel}
+          {confirmLabel || t('common.confirm')}
         </button>
       </div>
     </Modal>

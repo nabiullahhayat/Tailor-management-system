@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
@@ -15,6 +16,7 @@ import { notify } from '../utils/toast.js';
 const FILTERS = ['All', 'Fabric', 'Machinery'];
 
 export default function SalesHistoryPage() {
+  const { t } = useTranslation();
   const { sales, updatePaymentStatus } = useSales();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
@@ -35,16 +37,16 @@ export default function SalesHistoryPage() {
   }, [sales, query, filter]);
 
   const columns = [
-    { key: 'invoice', label: 'Invoice', render: (r) => <span className="font-semibold text-accent">{r.invoiceNumber}</span> },
-    { key: 'customer', label: 'Customer', render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
-    { key: 'type', label: 'Type', render: (r) => r.saleType },
-    { key: 'product', label: 'Product', render: (r) => r.productName },
-    { key: 'amount', label: 'Amount', render: (r) => formatCurrency(r.totalAmount) },
-    { key: 'date', label: 'Date', render: (r) => r.date || r.saleDate?.split('T')[0] || '—' },
-    { key: 'status', label: 'Payment', render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
+    { key: 'invoice', label: t('sales.invoice'), render: (r) => <span className="font-semibold text-accent">{r.invoiceNumber}</span> },
+    { key: 'customer', label: t('sales.customer'), render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
+    { key: 'type', label: t('common.type'), render: (r) => t(`ledger.${r.saleType}`, { defaultValue: r.saleType }) },
+    { key: 'product', label: t('sales.product'), render: (r) => r.productName },
+    { key: 'amount', label: t('common.amount'), render: (r) => formatCurrency(r.totalAmount) },
+    { key: 'date', label: t('common.date'), render: (r) => r.date || r.saleDate?.split('T')[0] || '—' },
+    { key: 'status', label: t('common.payment'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       className: 'w-28',
       render: (r) => <TableRowActions onView={() => setSelected(r)} />,
     },
@@ -53,27 +55,27 @@ export default function SalesHistoryPage() {
   return (
     <>
       <PageShell
-        title="Sales History"
-        subtitle={`${filtered.length} sales · Fabric and machinery transactions`}
-        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Sales' }]}
+        title={t('sales.historyTitle')}
+        subtitle={t('sales.historySubtitle', { count: filtered.length })}
+        breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('sales.historyTitle') }]}
         actions={
           <div className="flex gap-2">
-            <Link to="/sales/fabric"><Button variant="outline">Fabric Sale</Button></Link>
-            <Link to="/sales/machinery"><Button><Plus size={16} /> Machinery Sale</Button></Link>
+            <Link to="/sales/fabric"><Button variant="outline">{t('sales.fabricTitle')}</Button></Link>
+            <Link to="/sales/machinery"><Button><Plus size={16} /> {t('sales.machineTitle')}</Button></Link>
           </div>
         }
       >
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-md flex-1">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search sales…" />
+            <SearchInput value={query} onChange={setQuery} placeholder={t('sales.search')} />
           </div>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
-              <button key={f} type="button" onClick={() => setFilter(f)} className={`filter-chip ${filter === f ? 'filter-chip-active' : ''}`}>{f}</button>
+              <button key={f} type="button" onClick={() => setFilter(f)} className={`filter-chip ${filter === f ? 'filter-chip-active' : ''}`}>{t(`filters.${f}`)}</button>
             ))}
           </div>
         </div>
-        <DataTable columns={columns} rows={filtered} onRowClick={setSelected} emptyMessage="No sales records found." />
+        <DataTable columns={columns} rows={filtered} onRowClick={setSelected} emptyMessage={t('salesExtra.empty')} />
       </PageShell>
 
       <SaleDetailModal

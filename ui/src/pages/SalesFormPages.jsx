@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
@@ -18,6 +19,7 @@ import {
 } from '../utils/salesCustomerBalance.js';
 
 function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField, priceField, getItems, getPrice, getStock }) {
+  const { t } = useTranslation();
   const { salesCustomers, findOrCreateByName, adjustCreditBalance, refreshSalesCustomers } = useSalesCustomers();
   const { sales, addSale, updatePaymentStatus } = useSales();
   const { refreshStock } = useStock();
@@ -193,28 +195,28 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
   const saleRemainingDisplay = checkoutPreview?.saleRemaining ?? total;
 
   const confirmRows = [
-    { label: 'Customer', value: resolveCustomerName() },
+    { label: t('common.customer'), value: resolveCustomerName() },
     { label: itemLabel, value: selectedItem?.name || '—' },
     { label: qtyLabel, value: qty },
-    { label: `Price per ${priceField}`, value: `₹${Number(price || 0).toLocaleString()}` },
-    { label: 'Total amount', value: `₹${total.toLocaleString()}`, highlight: true },
+    { label: t('salesExtra.pricePer', { unit: priceField === 'meter' ? t('salesExtra.meters') : t('stockExtra.units') }), value: `₹${Number(price || 0).toLocaleString()}` },
+    { label: t('salesExtra.totalAmount'), value: `₹${total.toLocaleString()}`, highlight: true },
     ...(checkoutPreview?.walletUsed > 0
-      ? [{ label: 'Prepaid credit applied', value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.prepaidApplied'), value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
       : []),
     ...(checkoutPreview?.amountDueAfterCredit != null && checkoutPreview.walletUsed > 0
-      ? [{ label: 'Due after prepaid credit', value: `₹${checkoutPreview.amountDueAfterCredit.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.dueAfter'), value: `₹${checkoutPreview.amountDueAfterCredit.toLocaleString()}` }]
       : []),
-    { label: 'Cash received', value: `₹${Math.max(0, parseFloat(cashPaid) || 0).toLocaleString()}` },
-    { label: 'Total paid on this sale', value: `₹${salePaidDisplay.toLocaleString()}` },
+    { label: t('salesExtra.cashReceived'), value: `₹${Math.max(0, parseFloat(cashPaid) || 0).toLocaleString()}` },
+    { label: t('salesExtra.totalPaid'), value: `₹${salePaidDisplay.toLocaleString()}` },
     {
-      label: 'Remaining on this sale',
+      label: t('salesExtra.remainingSale'),
       value: `₹${saleRemainingDisplay.toLocaleString()}`,
       highlight: saleRemainingDisplay > 0,
     },
     ...(checkoutPreview?.surplusToPrepaid > 0
-      ? [{ label: 'Added to prepaid credit', value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.addedPrepaid'), value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
       : []),
-    { label: 'Payment status', value: checkoutPreview?.paymentStatus || 'Pending' },
+    { label: t('salesExtra.paymentStatus'), value: t(`status.${checkoutPreview?.paymentStatus || 'Pending'}`) },
   ];
 
   const selectClass =
@@ -224,18 +226,18 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
     <PageShell
       title={title}
       subtitle={subtitle}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Sales', to: '/sales' }, { label: title }]}
+      breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('nav.groups.sales'), to: '/sales' }, { label: title }]}
     >
       <div className="mx-auto w-full max-w-[1440px]">
         <div className="grid items-start gap-5 xl:grid-cols-12">
           <div className="space-y-5 xl:col-span-7">
             <div className="form-panel p-4 lg:p-5">
-              <SectionTitle title="Customer" />
+              <SectionTitle title={t('sales.customer')} />
               <div className="mb-2 max-w-md">
                 <SearchInput
                   value={customerSearch}
                   onChange={setCustomerSearch}
-                  placeholder="Search sales customers…"
+                  placeholder={t('sales.searchCustomers')}
                 />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
@@ -247,7 +249,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                   }}
                   className={selectClass}
                 >
-                  <option value="">Select sales customer…</option>
+                  <option value="">{t('sales.selectCustomer')}</option>
                   {filteredCustomers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -255,7 +257,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                   ))}
                 </select>
                 <Input
-                  placeholder="Or type new customer name"
+                  placeholder={t('sales.newCustomer')}
                   value={customerName}
                   onChange={(e) => {
                     setCustomerName(e.target.value);
@@ -268,13 +270,13 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
               {checkoutCustomer && (
                 <div className="mt-3 grid gap-2 rounded-xl border border-primary-soft bg-background px-3 py-2 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-ink-muted">Outstanding remaining (debt)</p>
+                    <p className="text-xs text-ink-muted">{t('salesExtra.outstanding')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
                       ₹{outstandingDebt.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-ink-muted">Prepaid credit</p>
+                    <p className="text-xs text-ink-muted">{t('customers.prepaidCredit')}</p>
                     <p className="text-base font-bold text-success">₹{prepaidAvailable.toLocaleString()}</p>
                   </div>
                 </div>
@@ -282,12 +284,12 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
             </div>
 
             <div className="form-panel p-4 lg:p-5">
-              <SectionTitle title={itemLabel} subtitle={`Search and select ${itemLabel.toLowerCase()} from stock`} />
+              <SectionTitle title={itemLabel} subtitle={t('salesExtra.selectHint', { item: itemLabel })} />
               <div className="mb-3 max-w-md">
                 <SearchInput
                   value={itemSearch}
                   onChange={setItemSearch}
-                  placeholder={`Search ${itemLabel.toLowerCase()} by name…`}
+                  placeholder={t('salesExtra.searchItem', { item: itemLabel })}
                 />
               </div>
               <select
@@ -299,16 +301,16 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                 }}
                 className={selectClass}
               >
-                <option value="">Select {itemLabel.toLowerCase()}…</option>
+                <option value="">{t('stock.selectItem')}</option>
                 {filteredItems.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} — stock: {getStock(item)}
+                    {item.name} — {t('stock.stock')}: {getStock(item)}
                   </option>
                 ))}
               </select>
               {errors.item && <p className="mt-1 text-xs text-danger">{errors.item}</p>}
               {itemSearch && filteredItems.length === 0 && (
-                <p className="mt-2 text-sm text-ink-muted">No {itemLabel.toLowerCase()} matches your search.</p>
+                <p className="mt-2 text-sm text-ink-muted">{t('salesExtra.noMatches')}</p>
               )}
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -320,7 +322,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                   error={errors.qty}
                 />
                 <Input
-                  label={`Price per ${priceField} (₹) *`}
+                  label={`${t('salesExtra.pricePer', { unit: priceField === 'meter' ? t('salesExtra.meters') : t('stockExtra.units') })} *`}
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
@@ -330,9 +332,9 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
               {selectedItem && (
                 <div className="mt-3 rounded-lg bg-background px-3 py-2 text-sm text-ink-secondary">
-                  Selected: <strong className="text-ink">{selectedItem.name}</strong>
+                  {t('common.name')}: <strong className="text-ink">{selectedItem.name}</strong>
                   {' · '}
-                  Stock: <strong>{getStock(selectedItem)}</strong>
+                  {t('stock.stock')}: <strong>{getStock(selectedItem)}</strong>
                 </div>
               )}
             </div>
@@ -340,20 +342,21 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
           <div className="xl:col-span-5">
             <div className="form-panel p-4 lg:p-5 xl:sticky xl:top-4">
-              <SectionTitle title="Payment & Total" />
+              <SectionTitle title={t('sales.payment')} />
               <p className="mb-3 text-xs text-ink-muted">
-                Prepaid credit is applied first. Cash covers what is left; less leaves remaining, more adds
-                prepaid credit.
+                {t('sales.paymentHint')}
               </p>
               {checkoutCustomer && prepaidAvailable > 0 && total > 0 && (
                 <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                  Will use up to ₹{Math.min(prepaidAvailable, total).toLocaleString()} from prepaid credit
-                  (balance ₹{prepaidAvailable.toLocaleString()}).
+                  {t('newOrder.creditWillUse', {
+                    amount: Math.min(prepaidAvailable, total).toLocaleString(),
+                    balance: prepaidAvailable.toLocaleString(),
+                  })}
                 </p>
               )}
 
               <Input
-                label="Cash payment (₹)"
+                label={t('sales.cash')}
                 type="number"
                 value={cashPaid}
                 onChange={(e) => {
@@ -361,26 +364,26 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                   setErrors((p) => ({ ...p, cashPaid: '', customer: '' }));
                 }}
                 error={errors.cashPaid}
-                placeholder="Amount received now"
+                placeholder={t('newOrder.amountNow')}
               />
 
               <div className="my-4 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50/80 px-3 py-3 sm:grid-cols-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Total</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.total')}</p>
                   <p className="text-base font-extrabold text-ink">₹{total.toLocaleString()}</p>
                 </div>
                 {checkoutPreview?.walletUsed > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Credit used</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('sales.creditUsed')}</p>
                     <p className="text-base font-bold text-accent">₹{checkoutPreview.walletUsed.toLocaleString()}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Paid</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.paid')}</p>
                   <p className="text-base font-bold text-success">₹{salePaidDisplay.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Remaining</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.remaining')}</p>
                   <p className={`text-base font-bold ${saleRemainingDisplay > 0 ? 'text-danger' : 'text-success'}`}>
                     ₹{saleRemainingDisplay.toLocaleString()}
                   </p>
@@ -389,12 +392,12 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
               {checkoutPreview?.surplusToPrepaid > 0 && (
                 <p className="mb-2 text-xs text-success">
-                  ₹{checkoutPreview.surplusToPrepaid.toLocaleString()} will be added to prepaid credit
+                  {t('newOrder.extraCredit', { amount: checkoutPreview.surplusToPrepaid.toLocaleString() })}
                 </p>
               )}
 
               <Button className="w-full sm:w-auto" onClick={() => validate() && setConfirmOpen(true)}>
-                Review & Save Sale
+                {t('sales.review')}
               </Button>
             </div>
           </div>
@@ -403,10 +406,10 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
       <ConfirmModal
         open={confirmOpen}
-        title={`Confirm ${title}`}
-        subtitle="Review details — bill opens after you confirm"
+        title={t('salesExtra.confirmTitle', { title })}
+        subtitle={t('salesExtra.confirmHint')}
         rows={confirmRows}
-        confirmLabel="Confirm & generate bill"
+        confirmLabel={t('salesExtra.confirmBill')}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleConfirm}
       />
@@ -430,14 +433,15 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 }
 
 export function FabricSalePage() {
+  const { t } = useTranslation();
   const { fabrics } = useStock();
   return (
     <SaleFormPage
-      title="Fabric Sale"
-      subtitle="Record a fabric sale"
+      title={t('sales.fabricTitle')}
+      subtitle={t('sales.fabricSubtitle')}
       saleType="Fabric Sale"
-      itemLabel="Fabric"
-      qtyLabel="Meters"
+      itemLabel={t('filters.Fabric')}
+      qtyLabel={t('salesExtra.meters')}
       qtyField="meters"
       priceField="meter"
       getItems={() => fabrics}
@@ -448,14 +452,15 @@ export function FabricSalePage() {
 }
 
 export function MachinerySalePage() {
+  const { t } = useTranslation();
   const { machinery } = useStock();
   return (
     <SaleFormPage
-      title="Machinery Sale"
-      subtitle="Record a machinery sale"
+      title={t('sales.machineTitle')}
+      subtitle={t('sales.machineSubtitle')}
       saleType="Machinery Sale"
-      itemLabel="Machine"
-      qtyLabel="Quantity"
+      itemLabel={t('stock.machine')}
+      qtyLabel={t('common.quantity')}
       qtyField="quantity"
       priceField="unit"
       getItems={() => machinery}

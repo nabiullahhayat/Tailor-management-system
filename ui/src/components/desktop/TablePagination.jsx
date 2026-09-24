@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const DEFAULT_PAGE_SIZE = 8;
@@ -63,6 +64,7 @@ export default function TablePagination({
   end,
   onPageChange,
 }) {
+  const { t } = useTranslation();
   const pages = buildPageList(page, totalPages);
 
   const pageOptions = useMemo(
@@ -75,16 +77,12 @@ export default function TablePagination({
   return (
     <div className="table-pagination flex flex-col gap-3 border-t border-primary-soft/80 bg-surface px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
       <p className="text-sm text-ink-muted">
-        Showing{' '}
-        <span className="font-semibold text-ink">
-          {start}–{end}
-        </span>{' '}
-        of <span className="font-semibold text-ink">{totalItems}</span>
+        {t('table.showing', { start, end, total: totalItems })}
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
         <label className="flex items-center gap-2 text-sm text-ink-muted">
-          <span className="whitespace-nowrap font-medium">Go to page</span>
+          <span className="whitespace-nowrap font-medium">{t('table.goToPage')}</span>
           <select
             value={page}
             onChange={(e) => onPageChange(Number(e.target.value))}
@@ -98,7 +96,7 @@ export default function TablePagination({
             ))}
           </select>
           <span className="whitespace-nowrap">
-            of <span className="font-semibold text-ink">{totalPages}</span>
+            {t('table.ofPages', { count: totalPages })}
           </span>
         </label>
 

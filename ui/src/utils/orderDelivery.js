@@ -1,7 +1,18 @@
+import { isSolarDateString, parseSolarDateString } from './solarDate.js';
+
 /** Local calendar date as YYYY-MM-DD. */
 export function toLocalDateKey(dateInput) {
   if (dateInput == null || dateInput === '') return null;
   const raw = String(dateInput).trim();
+  if (isSolarDateString(raw)) {
+    const d = parseSolarDateString(raw);
+    if (d && !Number.isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+  }
   const isoDay = raw.split('T')[0];
   if (/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) return isoDay;
   const d = new Date(raw);

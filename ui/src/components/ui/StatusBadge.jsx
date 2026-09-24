@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 const STYLES = {
   Finding: 'bg-violet-100 text-violet-700',
   Ready: 'bg-emerald-100 text-success',
@@ -9,13 +11,14 @@ const STYLES = {
 };
 
 export default function StatusBadge({ status }) {
+  const { t } = useTranslation();
   return (
     <span
       className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
         STYLES[status] || 'bg-slate-100 text-slate-600'
       }`}
     >
-      {status}
+      {t(`status.${status}`, { defaultValue: status })}
     </span>
   );
 }

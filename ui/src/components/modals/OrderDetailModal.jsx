@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
@@ -19,6 +20,7 @@ export default function OrderDetailModal({
   onRecordPayment,
   onPaymentComplete,
 }) {
+  const { t } = useTranslation();
   const { appName } = useSettings();
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReceived, setPaymentReceived] = useState(true);
@@ -145,25 +147,25 @@ export default function OrderDetailModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              ['Order Type(s)', displayOrder.orderType],
-              ['Employee', displayOrder.employeeName || '—'],
+              [t('detail.orderTypes'), displayOrder.orderType],
+              [t('common.employee'), displayOrder.employeeName || '—'],
               ...(fabricMeters !== undefined && fabricMeters !== '' && fabricMeters != null
-                ? [['Customer fabric (m)', String(fabricMeters)]]
+                ? [[t('detail.fabricMeters'), String(fabricMeters)]]
                 : []),
-              ['Total Amount', `₹${total.toLocaleString()}`],
+              [t('detail.totalAmount'), `₹${total.toLocaleString()}`],
               ...(bookingCash > 0
-                ? [['Cash received (booking)', `₹${bookingCash.toLocaleString()}`]]
+                ? [[t('detail.cashBooking'), `₹${bookingCash.toLocaleString()}`]]
                 : []),
-              ['Paid on this order', `₹${paid.toLocaleString()}`],
+              [t('detail.paidOnOrder'), `₹${paid.toLocaleString()}`],
               ...(bookingToDebt > 0
-                ? [['From booking → old remaining', `₹${bookingToDebt.toLocaleString()}`]]
+                ? [[t('detail.fromDebt'), `₹${bookingToDebt.toLocaleString()}`]]
                 : []),
               ...(bookingToPrepaid > 0
-                ? [['From booking → prepaid credit', `₹${bookingToPrepaid.toLocaleString()}`]]
+                ? [[t('detail.fromPrepaid'), `₹${bookingToPrepaid.toLocaleString()}`]]
                 : []),
-              ['Remaining on this order', `₹${orderRemaining.toLocaleString()}`],
-              ['Delivery Date', displayOrder.deliveryDate || '—'],
-              ['Color', displayOrder.color || '—'],
+              [t('detail.remainingOrder'), `₹${orderRemaining.toLocaleString()}`],
+              [t('common.deliveryDate'), displayOrder.deliveryDate || '—'],
+              [t('common.color'), displayOrder.color || '—'],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-background px-3 py-2">
                 <p className="text-xs text-ink-muted">{label}</p>
@@ -174,7 +176,7 @@ export default function OrderDetailModal({
 
           {lineItems.length > 0 && (
             <div className="rounded-xl border border-black/5 bg-background px-4 py-3">
-              <p className="mb-2 text-sm font-semibold text-ink">Types & prices</p>
+              <p className="mb-2 text-sm font-semibold text-ink">{t('modals.typesPrices')}</p>
               <div className="space-y-1 text-sm">
                 {lineItems.map((line, i) => {
                   const qty = Number(line.quantity ?? 1) || 1;
@@ -200,13 +202,13 @@ export default function OrderDetailModal({
           {customerBalance && (
             <div className="grid gap-2 rounded-xl border border-black/5 bg-background px-4 py-3 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-ink-muted">Customer total remaining (debt)</p>
+                <p className="text-xs text-ink-muted">{t('detail.customerDebt')}</p>
                 <p className={`font-bold ${customerBalance.debt > 0 ? 'text-danger' : 'text-success'}`}>
                   ₹{Number(customerBalance.debt || 0).toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-ink-muted">Customer prepaid credit</p>
+                <p className="text-xs text-ink-muted">{t('detail.customerPrepaid')}</p>
                 <p className="font-bold text-success">₹{Number(customerBalance.credit || 0).toLocaleString()}</p>
               </div>
             </div>
@@ -214,7 +216,7 @@ export default function OrderDetailModal({
 
           {Object.keys(measurements).length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-semibold text-ink">Measurements</p>
+              <p className="mb-2 text-sm font-semibold text-ink">{t('modals.measurements')}</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {Object.entries(measurements).map(([key, value]) => (
                   <div key={key} className="rounded-lg bg-background px-3 py-2 text-sm">
@@ -235,7 +237,7 @@ export default function OrderDetailModal({
                 variant={displayOrder.status === status ? 'primary' : 'outline'}
                 onClick={() => handleStatusClick(status)}
               >
-                Mark {status}
+                {t('detail.mark', { status: t(`status.${status}`) })}
               </Button>
             ))}
           </div>
@@ -243,21 +245,15 @@ export default function OrderDetailModal({
           {isDelivered && (
             <>
               <div className="rounded-2xl border border-black/5 bg-background p-4">
-                <p className="mb-3 text-sm font-bold text-ink">Recorded Payment</p>
+                <p className="mb-3 text-sm font-bold text-ink">{t('modals.recordedPayment')}</p>
                 {orderRemaining <= 0 && paid > 0 ? (
                   <p className="mb-3 text-sm text-success">
-                    Paid in full when the order was created
-                    {bookingCash > paid
-                      ? ` (₹${bookingCash.toLocaleString()} received; ₹${paid.toLocaleString()} on this order`
-                      : ''}
-                    {bookingToDebt > 0 ? `; ₹${bookingToDebt.toLocaleString()} to old remaining` : ''}
-                    {bookingToPrepaid > 0 ? `; ₹${bookingToPrepaid.toLocaleString()} to prepaid credit` : ''}
-                    {bookingCash > paid || bookingToDebt > 0 || bookingToPrepaid > 0 ? ').' : '.'}{' '}
-                    Use Record Payment to confirm delivery collection, or Generate Invoice below.
+                    {t('detail.paidInFull')}{' '}
+                    {t('detail.useRecord')}
                   </p>
                 ) : null}
                 <Input
-                  label="Amount (₹)"
+                  label={t('modals.amount')}
                   type="number"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
@@ -269,19 +265,19 @@ export default function OrderDetailModal({
                     checked={paymentReceived}
                     onChange={(e) => setPaymentReceived(e.target.checked)}
                   />
-                  Payment received (uncheck to save without payment / keep as debt)
+                  {t('detail.paymentReceived')}
                 </label>
                 <Button type="button" onClick={handlePayment}>
                   {paymentReceived
                     ? orderRemaining <= 0 && paid > 0
-                      ? 'Confirm & close'
-                      : 'Record Payment'
-                    : 'Save without payment'}
+                      ? t('detail.confirmClose')
+                      : t('detail.recordPayment')
+                    : t('detail.saveWithout')}
                 </Button>
               </div>
 
               <Button type="button" variant="outline" onClick={() => setInvoiceOpen(true)}>
-                <FileText size={16} /> Generate Invoice
+                <FileText size={16} /> {t('detail.generateInvoice')}
               </Button>
             </>
           )}

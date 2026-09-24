@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
+import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
+import AppIconMark from '../components/ui/AppIconMark.jsx';
 import { useSettings } from '../context/SettingsContext.jsx';
 import { settingsService } from '../services/index.js';
+import { fallbackLetterFromAppName } from '../utils/appIcon.js';
+import { APP_LANGUAGES } from '../i18n/languages.js';
 import { notify } from '../utils/toast.js';
 
+const ACCEPT_ICON = 'image/png,image/jpeg,image/webp,image/gif';
+
 export default function SettingsPage() {
-  const { appName, language, saveSettings } = useSettings();
+  const { t } = useTranslation();
+  const { appName, language, appIconUrl, saveSettings, uploadAppIcon, removeAppIcon } = useSettings();
+  const [iconUploading, setIconUploading] = useState(false);
   const [form, setForm] = useState({
     appName: '',
     shopName: '',
@@ -31,59 +40,164 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     await saveSettings(form);
-    notify.success('Settings saved', 'Your shop preferences have been updated');
+    notify.success(t('settings.savedToast'), t('settings.savedToastDesc'));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
+  const handleIconPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      notify.warning('Invalid file', 'Please choose an image (PNG, JPG, WebP, or GIF).');
+      return;
+    }
+    setIconUploading(true);
+    try {
+      await uploadAppIcon(file);
+      notify.success('App icon updated', 'Shown in the sidebar and top bar (saved in public/icone).');
+    } catch (err) {
+      notify.error('Upload failed', err.message || 'Could not save app icon.');
+    } finally {
+      setIconUploading(false);
+    }
+  };
+
+  const handleRemoveIcon = async () => {
+    setIconUploading(true);
+    try {
+      await removeAppIcon();
+      notify.success('App icon removed', 'Using default letter again.');
+    } catch (err) {
+      notify.error('Could not remove icon', err.message);
+    } finally {
+      setIconUploading(false);
+    }
+  };
+
   return (
     <PageShell
-      title="Settings"
-      subtitle="Configure shop profile, language, and app preferences"
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Settings' }]}
+      title={t('settings.title')}
+      subtitle={t('settings.subtitle')}
+      breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('settings.title') }]}
+      actions={
+        <Button type="button" onClick={handleSave}>
+          {t('common.saveSettings')}
+        </Button>
+      }
     >
-      <div className="mx-auto max-w-3xl space-y-6">
-          {saved && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-success">
-              Settings saved successfully.
+      <div className="mx-auto w-full max-w-[1280px]">
+        {saved && (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-success">
+            {t('settings.saved')}
+          </div>
+        )}
+
+        <div className="grid items-start gap-5 lg:grid-cols-12">
+          <div className="form-panel p-4 lg:col-span-7 lg:p-5">
+            <SectionTitle title={t('settings.shopProfile')} subtitle={t('settings.shopProfileHint')} />
+            <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+              <Input
+                label={t('settings.appName')}
+                value={form.appName}
+                onChange={(e) => setForm((p) => ({ ...p, appName: e.target.value }))}
+                className="mb-3"
+              />
+              <Input
+                label={t('settings.shopName')}
+                value={form.shopName}
+                onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
+                className="mb-3"
+              />
+              <Input
+                label={t('settings.shopPhone')}
+                value={form.shopPhone}
+                onChange={(e) => setForm((p) => ({ ...p, shopPhone: e.target.value }))}
+                className="mb-3"
+              />
+              <Input
+                label={t('settings.shopAddress')}
+                value={form.shopAddress}
+                onChange={(e) => setForm((p) => ({ ...p, shopAddress: e.target.value }))}
+                className="mb-3"
+              />
             </div>
-          )}
+          </div>
 
-          <section className="rounded-2xl border border-black/5 bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold">Shop Profile</h3>
-            <Input label="App Name" value={form.appName} onChange={(e) => setForm((p) => ({ ...p, appName: e.target.value }))} />
-            <Input label="Shop Name" value={form.shopName} onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))} />
-            <Input label="Shop Phone" value={form.shopPhone} onChange={(e) => setForm((p) => ({ ...p, shopPhone: e.target.value }))} />
-            <Input label="Shop Address" value={form.shopAddress} onChange={(e) => setForm((p) => ({ ...p, shopAddress: e.target.value }))} />
-          </section>
-
-          <section className="rounded-2xl border border-black/5 bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold">Language</h3>
-            <div className="space-y-3">
-              {[
-                { value: 'pashto', label: 'Pashto', sub: 'پښتو' },
-                { value: 'dari', label: 'Dari', sub: 'دری' },
-              ].map((lang) => (
-                <button
-                  key={lang.value}
-                  type="button"
-                  onClick={() => setForm((p) => ({ ...p, language: lang.value }))}
-                  className={`flex w-full items-center justify-between rounded-xl border-2 px-4 py-3 text-left ${
-                    form.language === lang.value ? 'border-navy bg-primary-soft' : 'border-black/10 bg-background'
-                  }`}
-                >
-                  <div>
-                    <p className="font-bold text-ink">{lang.label}</p>
-                    <p className="text-sm text-ink-muted">{lang.sub}</p>
-                  </div>
-                  {form.language === lang.value && <span className="text-sm font-bold text-navy">Selected</span>}
-                </button>
-              ))}
+          <div className="space-y-5 lg:col-span-5">
+            <div className="form-panel p-4 lg:p-5">
+              <SectionTitle title={t('settings.appIcon')} subtitle={t('settings.appIconHint')} />
+              <div className="flex items-center gap-4">
+                <AppIconMark
+                  appIconUrl={appIconUrl}
+                  fallbackLetter={fallbackLetterFromAppName(form.appName || appName)}
+                  className="h-12 w-12"
+                  letterClassName="text-lg font-extrabold text-white"
+                />
+                <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                  <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-sm font-bold text-white transition hover:bg-accent/90">
+                    {iconUploading ? t('settings.saving') : t('settings.uploadImage')}
+                    <input
+                      type="file"
+                      accept={ACCEPT_ICON}
+                      className="hidden"
+                      disabled={iconUploading}
+                      onChange={handleIconPick}
+                    />
+                  </label>
+                  {appIconUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={iconUploading}
+                      onClick={handleRemoveIcon}
+                    >
+                      {t('settings.remove')}
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-          </section>
 
-          <Button onClick={handleSave}>Save Settings</Button>
+            <div className="form-panel p-4 lg:p-5">
+              <SectionTitle title={t('settings.backup')} subtitle={t('settings.backupHint')} />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline">
+                  {t('settings.backupBtn')}
+                </Button>
+                <Button type="button" variant="outline">
+                  {t('settings.uploadBackup')}
+                </Button>
+              </div>
+            </div>
+
+            <div className="form-panel p-4 lg:p-5">
+              <SectionTitle title={t('settings.language')} />
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(APP_LANGUAGES).map(([value, lang]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setForm((p) => ({ ...p, language: value }));
+                      saveSettings({ language: value });
+                    }}
+                    className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
+                      form.language === value
+                        ? 'border-accent bg-primary-soft ring-1 ring-accent/20'
+                        : 'border-black/10 bg-background hover:border-black/20'
+                    }`}
+                  >
+                    <p className="text-sm font-bold text-ink">{lang.native}</p>
+                    <p className="text-xs text-ink-muted">{lang.label}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </PageShell>
   );
 }

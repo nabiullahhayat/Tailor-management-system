@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
@@ -25,6 +26,7 @@ function resolveCustomerId(order, customers) {
 }
 
 export default function OrdersPage() {
+  const { t } = useTranslation();
   const { orders, updateOrderStatus, recordOrderPayment, updateOrder, deleteOrder, refreshOrders } =
     useOrders();
   const { customers, refreshCustomers } = useCustomers();
@@ -76,13 +78,13 @@ export default function OrdersPage() {
   const columns = [
     {
       key: 'token',
-      label: 'Order',
+      label: t('orders.order'),
       className: 'w-[4.5rem]',
       render: (r) => <span className="font-semibold text-accent">{r.tokenNumber.replace('ORD-', '')}</span>,
     },
     {
       key: 'customer',
-      label: 'Customer',
+      label: t('common.customer'),
       render: (r) => (
         <span className="block max-w-[7rem] truncate font-medium text-ink" title={r.customerName}>
           {r.customerName}
@@ -91,25 +93,25 @@ export default function OrdersPage() {
     },
     {
       key: 'type',
-      label: 'Garment',
+      label: t('orders.garment'),
       render: (r) => (
         <span className="block max-w-[5rem] truncate" title={r.orderType}>
           {r.orderType}
         </span>
       ),
     },
-    { key: 'delivery', label: 'Del.', className: 'whitespace-nowrap', render: (r) => r.deliveryDate?.split('T')[0] || '—' },
-    { key: 'amount', label: 'Total', className: 'whitespace-nowrap', render: (r) => formatCurrency(r.totalAmount) },
+    { key: 'delivery', label: t('orders.del'), className: 'whitespace-nowrap', render: (r) => r.deliveryDate?.split('T')[0] || '—' },
+    { key: 'amount', label: t('common.total'), className: 'whitespace-nowrap', render: (r) => formatCurrency(r.totalAmount) },
     {
       key: 'paid',
-      label: 'Paid',
+      label: t('common.paid'),
       render: (r) => (
         <span className="text-success">{formatCurrency(r.paidAmount || 0)}</span>
       ),
     },
     {
       key: 'remaining',
-      label: 'Remaining',
+      label: t('common.remaining'),
       render: (r) => {
         const rem = Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0));
         return <span className={rem > 0 ? 'text-danger font-medium' : 'text-ink-muted'}>{formatCurrency(rem)}</span>;
@@ -117,7 +119,7 @@ export default function OrdersPage() {
     },
     {
       key: 'custBalance',
-      label: 'Balance',
+      label: t('common.balance'),
       className: 'whitespace-nowrap',
       render: (r) => {
         const cid = resolveCustomerId(r, customers);
@@ -125,19 +127,19 @@ export default function OrdersPage() {
         const debt = balanceMap[cid].creditRemaining;
         const credit = balanceMap[cid].prepaidCredit;
         if (credit > 0) {
-          return <span className="text-xs text-success">Credit ₹{credit.toLocaleString()}</span>;
+          return <span className="text-xs text-success">{t('common.credit')} ₹{credit.toLocaleString()}</span>;
         }
         if (debt > 0) {
-          return <span className="text-xs text-danger">Debt ₹{debt.toLocaleString()}</span>;
+          return <span className="text-xs text-danger">{t('common.debt')} ₹{debt.toLocaleString()}</span>;
         }
-        return <span className="text-xs text-ink-muted">Settled</span>;
+        return <span className="text-xs text-ink-muted">{t('common.settled')}</span>;
       },
     },
-    { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'payment', label: 'Pay', render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
+    { key: 'status', label: t('common.status'), render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'payment', label: t('orders.pay'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       className: 'w-[5.5rem]',
       render: (r) => (
         <TableRowActions
@@ -160,14 +162,14 @@ export default function OrdersPage() {
   return (
     <>
       <PageShell
-        title="Orders"
-        subtitle={`${filtered.length} orders · Manage tailoring jobs from booking to delivery`}
-        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Orders' }]}
-        actions={<Link to="/orders/new"><Button><Plus size={16} /> New Order</Button></Link>}
+        title={t('orders.title')}
+        subtitle={t('orders.subtitle', { count: filtered.length })}
+        breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('orders.title') }]}
+        actions={<Link to="/orders/new"><Button><Plus size={16} /> {t('common.newOrder')}</Button></Link>}
       >
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-md flex-1">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search by customer or order token…" />
+            <SearchInput value={query} onChange={setQuery} placeholder={t('orders.search')} />
           </div>
           <div className="flex flex-wrap gap-2">
             {STATUS_FILTERS.map((status) => (
@@ -177,7 +179,7 @@ export default function OrdersPage() {
                 onClick={() => setStatusFilter(status)}
                 className={`filter-chip ${statusFilter === status ? 'filter-chip-active' : ''}`}
               >
-                {status}
+                {t(`status.${status}`, { defaultValue: status })}
               </button>
             ))}
           </div>
@@ -188,7 +190,7 @@ export default function OrdersPage() {
           columns={columns}
           rows={filtered}
           onRowClick={setSelected}
-          emptyMessage="No orders match your filters."
+          emptyMessage={t('orders.empty')}
         />
       </PageShell>
 
@@ -219,20 +221,23 @@ export default function OrdersPage() {
 
       <ConfirmModal
         open={!!deleteTarget}
-        title="Delete order?"
-        subtitle={`Remove ${deleteTarget?.tokenNumber} for ${deleteTarget?.customerName}? This cannot be undone.`}
+        title={t('orders.deleteTitle')}
+        subtitle={t('orders.deleteSubtitle', {
+          token: deleteTarget?.tokenNumber,
+          name: deleteTarget?.customerName,
+        })}
         rows={[]}
-        confirmLabel="Delete"
+        confirmLabel={t('common.delete')}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={async () => {
           try {
             await deleteOrder(deleteTarget.id);
             await refreshOrders();
-            notify.success('Order deleted', `${deleteTarget.tokenNumber} and related Dakhal entries removed`);
+            notify.success(t('orders.deleted'), t('orders.deletedDesc', { token: deleteTarget.tokenNumber }));
             if (selected?.id === deleteTarget.id) setSelected(null);
             setDeleteTarget(null);
           } catch (err) {
-            notify.error('Delete failed', err.message);
+            notify.error(t('orders.deleteFailed'), err.message);
           }
         }}
       />

@@ -32,11 +32,15 @@
   #root {
     @apply h-screen overflow-hidden;
   }
+
+  html[dir='rtl'] body {
+    font-family: "Noto Naskh Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 @layer components {
   .sidebar-shell {
-    @apply flex h-screen shrink-0 flex-col overflow-hidden border-r border-navy-light/50;
+    @apply flex h-screen shrink-0 flex-col overflow-hidden border-e border-navy-light/50;
   }
 
   .sidebar-nav-scroll {

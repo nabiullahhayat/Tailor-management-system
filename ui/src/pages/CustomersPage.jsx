@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
@@ -28,6 +29,7 @@ import {
 } from '../utils/salesCustomerBalance.js';
 
 export default function CustomersPage() {
+  const { t } = useTranslation();
   const {
     customers,
     addCustomer,
@@ -90,12 +92,12 @@ export default function CustomersPage() {
   const fmt = (n) => `₹${Number(n || 0).toLocaleString()}`;
 
   const orderColumns = [
-    { key: 'token', label: 'Token', render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
-    { key: 'name', label: 'Customer Name', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
-    { key: 'phone', label: 'Phone', render: (r) => r.phone },
+    { key: 'token', label: t('customers.token'), render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
+    { key: 'name', label: t('customers.customerName'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
+    { key: 'phone', label: t('common.phone'), render: (r) => r.phone },
     {
       key: 'remaining',
-      label: 'Remaining (debt)',
+      label: t('customers.remainingDebt'),
       render: (r) => {
         const debt = orderBalanceMap[r.id]?.creditRemaining ?? 0;
         return (
@@ -105,17 +107,17 @@ export default function CustomersPage() {
     },
     {
       key: 'prepaid',
-      label: 'Credit',
+      label: t('common.credit'),
       render: (r) => (
         <span className="font-semibold text-success">
           {fmt(orderBalanceMap[r.id]?.prepaidCredit ?? r.creditBalance)}
         </span>
       ),
     },
-    { key: 'added', label: 'Added', render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
+    { key: 'added', label: t('customers.added'), render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       render: (r) => (
         <TableRowActions
           onView={() => setSelected(r)}
@@ -127,21 +129,21 @@ export default function CustomersPage() {
   ];
 
   const saleColumns = [
-    { key: 'name', label: 'Customer Name', render: (r) => <span className="font-medium text-ink">{r.name}</span> },
-    { key: 'phone', label: 'Phone', render: (r) => r.phone || '—' },
+    { key: 'name', label: t('customers.customerName'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
+    { key: 'phone', label: t('common.phone'), render: (r) => r.phone || '—' },
     {
       key: 'total',
-      label: 'Total sales',
+      label: t('customers.totalSales'),
       render: (r) => <span className="font-semibold">{fmt(salesBalanceMap[r.id]?.totalAmount)}</span>,
     },
     {
       key: 'paid',
-      label: 'Paid',
+      label: t('common.paid'),
       render: (r) => <span className="font-semibold text-success">{fmt(salesBalanceMap[r.id]?.paidAmount)}</span>,
     },
     {
       key: 'credit',
-      label: 'Remaining (debt)',
+      label: t('customers.remainingDebt'),
       render: (r) => {
         const credit = salesBalanceMap[r.id]?.creditRemaining ?? 0;
         return (
@@ -153,15 +155,15 @@ export default function CustomersPage() {
     },
     {
       key: 'prepaid',
-      label: 'Prepaid credit',
+      label: t('customers.prepaidCredit'),
       render: (r) => (
         <span className="font-semibold text-success">{fmt(salesBalanceMap[r.id]?.prepaidCredit ?? r.creditBalance)}</span>
       ),
     },
-    { key: 'added', label: 'Added', render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
+    { key: 'added', label: t('customers.added'), render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
     {
       key: 'actions',
-      label: 'Actions',
+      label: t('common.actions'),
       render: (r) => (
         <TableRowActions
           onView={() => setSelectedSale(r)}
@@ -177,29 +179,29 @@ export default function CustomersPage() {
   return (
     <>
       <PageShell
-        title="Customers"
+        title={t('customers.title')}
         subtitle={
           isOrder
-            ? `${customers.length} order customers · measurements and tailoring orders`
-            : `${salesCustomers.length} sales customers · fabric and machinery buyers`
+            ? `${customers.length} · ${t('customers.orderTab')}`
+            : `${salesCustomers.length} · ${t('customers.salesTab')}`
         }
-        breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Customers' }]}
+        breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('customers.title') }]}
         actions={
           isOrder ? (
             <Button type="button" onClick={() => setAddOrderCustomerOpen(true)}>
-              <Plus size={16} /> Add Customer
+              <Plus size={16} /> {t('customers.add')}
             </Button>
           ) : (
             <Button type="button" onClick={() => setAddSaleOpen(true)}>
-              <Plus size={16} /> Add Sales Customer
+              <Plus size={16} /> {t('customersExtra.addSales')}
             </Button>
           )
         }
       >
         <div className="mb-4 flex max-w-xl flex-wrap gap-2">
           {[
-            { key: 'order', label: 'Order Customers' },
-            { key: 'sale', label: 'Sales Customers' },
+            { key: 'order', label: t('customers.orderTab') },
+            { key: 'sale', label: t('customers.salesTab') },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -219,7 +221,7 @@ export default function CustomersPage() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder={isOrder ? 'Search by name, phone, or token…' : 'Search sales customers by name…'}
+            placeholder={isOrder ? t('customersExtra.searchOrder') : t('customersExtra.searchSales')}
           />
         </div>
 
@@ -228,14 +230,14 @@ export default function CustomersPage() {
             columns={orderColumns}
             rows={filteredOrder}
             onRowClick={setSelected}
-            emptyMessage="No order customers found. Add a customer with measurements to get started."
+            emptyMessage={t('customersExtra.emptyOrder')}
           />
         ) : (
           <DataTable
             columns={saleColumns}
             rows={filteredSale}
             onRowClick={undefined}
-            emptyMessage="No sales customers yet. Names are added automatically when you type them on fabric or machinery sales."
+            emptyMessage={t('customersExtra.emptySales')}
           />
         )}
       </PageShell>
