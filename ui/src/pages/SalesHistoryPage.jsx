@@ -11,6 +11,7 @@ import TableRowActions from '../components/ui/TableRowActions.jsx';
 import SaleDetailModal from '../components/modals/SaleDetailModal.jsx';
 import { useSales } from '../context/SaleContext.jsx';
 import { formatCurrency } from '../utils/chartData.js';
+import { formatSolarDisplay } from '../utils/solarDate.js';
 import { notify } from '../utils/toast.js';
 
 const FILTERS = ['All', 'Fabric', 'Machinery'];
@@ -42,7 +43,7 @@ export default function SalesHistoryPage() {
     { key: 'type', label: t('common.type'), render: (r) => t(`ledger.${r.saleType}`, { defaultValue: r.saleType }) },
     { key: 'product', label: t('sales.product'), render: (r) => r.productName },
     { key: 'amount', label: t('common.amount'), render: (r) => formatCurrency(r.totalAmount) },
-    { key: 'date', label: t('common.date'), render: (r) => r.date || r.saleDate?.split('T')[0] || '—' },
+    { key: 'date', label: t('common.date'), render: (r) => formatSolarDisplay(r.date || r.saleDate) },
     { key: 'status', label: t('common.payment'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
     {
       key: 'actions',
@@ -84,7 +85,7 @@ export default function SalesHistoryPage() {
         onClose={() => setSelected(null)}
         onMarkPaid={async (...args) => {
           await updatePaymentStatus(...args);
-          notify.success('Payment marked as paid');
+          notify.success(t('toasts.paymentMarkedPaid'));
         }}
       />
     </>

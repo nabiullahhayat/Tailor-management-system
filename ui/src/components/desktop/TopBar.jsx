@@ -20,6 +20,7 @@ import {
   saveDismissedNotificationKeys,
   stockNotificationKey,
 } from '../../utils/notificationDismiss.js';
+import { getTodaySolar } from '../../utils/solarDate.js';
 
 export default function TopBar({ onMenuClick }) {
   const { t } = useTranslation();
@@ -85,12 +86,7 @@ export default function TopBar({ onMenuClick }) {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [notificationsOpen]);
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const solarDate = getTodaySolar();
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -131,12 +127,7 @@ export default function TopBar({ onMenuClick }) {
         </div>
       </form>
 
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-lg bg-primary-soft/80 px-3 py-2 text-xs font-medium text-ink-secondary xl:flex">
-          <Calendar size={14} className="text-accent" />
-          {today}
-        </div>
-
+      <div className="flex items-center gap-2">
         <div className="relative" ref={notificationsRef}>
           <button
             type="button"
@@ -154,8 +145,8 @@ export default function TopBar({ onMenuClick }) {
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-primary-soft bg-surface py-2 shadow-lg">
-              <div className="border-b border-primary-soft px-4 py-2">
+            <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full z-50 sm:mt-2 w-auto sm:w-[min(90vw,22rem)] max-h-[calc(100vh-5rem)] sm:max-h-[min(80vh,32rem)] overflow-hidden rounded-xl border border-primary-soft bg-surface shadow-lg flex flex-col">
+              <div className="border-b border-primary-soft px-4 py-3 shrink-0">
                 <p className="text-sm font-bold text-ink">{t('topbar.notifications')}</p>
                 <p className="text-xs text-ink-muted">{t('topbar.deliveryAndStock')}</p>
               </div>
@@ -163,104 +154,111 @@ export default function TopBar({ onMenuClick }) {
               {notificationCount === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-ink-muted">{t('topbar.none')}</p>
               ) : (
-                <ul className="max-h-80 overflow-y-auto py-1">
-                  {visibleDeliveryAlerts.map((order) => {
-                    const dismissKey = deliveryNotificationKey(order.id, getTomorrowDateKey());
-                    return (
-                      <li key={`delivery-${order.id}`} className="flex items-start gap-0.5 pr-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotificationsOpen(false);
-                            navigate('/orders');
-                          }}
-                          className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
-                        >
-                          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-ink">
-                              {t('topbar.deliveryTomorrow', { token: formatOrderWarningLabel(order) })}
-                            </p>
-                            <p className="truncate text-xs text-ink-muted">{order.customerName}</p>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t('topbar.dismiss')}
-                          onClick={() => dismissNotification(dismissKey)}
-                          className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
-                        >
-                          <X size={16} />
-                        </button>
-                      </li>
-                    );
-                  })}
-                  {visibleStockWarnings.map((alert) => {
-                    const dismissKey = stockNotificationKey(alert.kind, alert.id, alert.stock);
-                    return (
-                      <li key={`${alert.kind}-${alert.id}`} className="flex items-start gap-0.5 pr-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotificationsOpen(false);
-                            navigate('/stock');
-                          }}
-                          className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
-                        >
-                          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-ink">{alert.name}</p>
-                            <p className="text-xs text-ink-muted">
-                              {t('topbar.lowStock', {
-                              stock: alert.stock,
-                              unit: alert.unitLabel,
-                              warn: alert.warningQuantity,
-                            })}
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t('topbar.dismiss')}
-                          onClick={() => dismissNotification(dismissKey)}
-                          className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
-                        >
-                          <X size={16} />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                <>
+                  <ul className="overflow-y-auto py-1 flex-1">
+                    {visibleDeliveryAlerts.map((order) => {
+                      const dismissKey = deliveryNotificationKey(order.id, getTomorrowDateKey());
+                      return (
+                        <li key={`delivery-${order.id}`} className="flex items-start gap-0.5 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              navigate('/orders');
+                            }}
+                            className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
+                          >
+                            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-ink">
+                                {t('topbar.deliveryTomorrow', { token: formatOrderWarningLabel(order) })}
+                              </p>
+                              <p className="truncate text-xs text-ink-muted">{order.customerName}</p>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={t('topbar.dismiss')}
+                            onClick={() => dismissNotification(dismissKey)}
+                            className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
+                          >
+                            <X size={16} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {visibleStockWarnings.map((alert) => {
+                      const dismissKey = stockNotificationKey(alert.kind, alert.id, alert.stock);
+                      return (
+                        <li key={`${alert.kind}-${alert.id}`} className="flex items-start gap-0.5 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              navigate('/stock');
+                            }}
+                            className="flex min-w-0 flex-1 items-start gap-2 px-4 py-2.5 text-left transition hover:bg-primary-soft/40"
+                          >
+                            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-ink">{alert.name}</p>
+                              <p className="text-xs text-ink-muted">
+                                {t('topbar.lowStock', {
+                                stock: alert.stock,
+                                unit: alert.unitLabel,
+                                warn: alert.warningQuantity,
+                              })}
+                              </p>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={t('topbar.dismiss')}
+                            onClick={() => dismissNotification(dismissKey)}
+                            className="mt-2 shrink-0 rounded-lg p-1.5 text-ink-muted transition hover:bg-primary-soft hover:text-ink"
+                          >
+                            <X size={16} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
 
-              <div className="flex flex-wrap gap-3 border-t border-primary-soft px-4 py-2">
-                {visibleDeliveryAlerts.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNotificationsOpen(false);
-                      navigate('/orders');
-                    }}
-                    className="text-xs font-semibold text-accent hover:underline"
-                  >
-                    {t('topbar.allOrders')}
-                  </button>
-                )}
-                {visibleStockWarnings.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNotificationsOpen(false);
-                      navigate('/stock');
-                    }}
-                    className="text-xs font-semibold text-accent hover:underline"
-                  >
-                    {t('topbar.stockManagement')}
-                  </button>
-                )}
-              </div>
+                  <div className="flex flex-wrap gap-3 border-t border-primary-soft px-4 py-2.5 shrink-0">
+                    {visibleDeliveryAlerts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotificationsOpen(false);
+                          navigate('/orders');
+                        }}
+                        className="text-xs font-semibold text-accent hover:underline"
+                      >
+                        {t('topbar.allOrders')}
+                      </button>
+                    )}
+                    {visibleStockWarnings.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotificationsOpen(false);
+                          navigate('/stock');
+                        }}
+                        className="text-xs font-semibold text-accent hover:underline"
+                      >
+                        {t('topbar.stockManagement')}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
+        </div>
+
+        <div className="hidden items-center gap-2 rounded-lg bg-primary-soft/80 px-3 py-2 text-sm font-medium text-ink-secondary xl:flex">
+          <Calendar size={16} className="text-accent" />
+          {solarDate}
         </div>
 
         <button

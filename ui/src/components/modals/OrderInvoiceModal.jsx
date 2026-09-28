@@ -2,10 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { Printer } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
+import { formatSolarDisplay } from '../../utils/solarDate.js';
+import { formatCurrency } from '../../utils/currency.js';
 
-function formatMoney(n) {
-  return `₹${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-}
+const formatMoney = (n) => formatCurrency(n, { maximumFractionDigits: 2 });
 
 function line(char = '-', width = 32) {
   return char.repeat(width);
@@ -62,7 +62,7 @@ export default function OrderInvoiceModal({
         {customerPhone ? <p>{t('common.phone')}: {customerPhone}</p> : null}
         <p>{t('common.type')}: {order.orderType}</p>
         {order.color ? <p>{t('common.color')}: {order.color}</p> : null}
-        {order.deliveryDate ? <p>{t('common.deliveryDate')}: {String(order.deliveryDate).split('T')[0]}</p> : null}
+        {order.deliveryDate ? <p>{t('common.deliveryDate')}: {formatSolarDisplay(order.deliveryDate)}</p> : null}
         <p className="text-xs">{line('-')}</p>
 
         <p className="font-bold">{t('modals.item')}</p>

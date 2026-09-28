@@ -8,6 +8,7 @@ import Input from '../ui/Input.jsx';
 import OrderInvoiceModal from './OrderInvoiceModal.jsx';
 import { useSettings } from '../../context/SettingsContext.jsx';
 import { notify } from '../../utils/toast.js';
+import { formatSolarDisplay } from '../../utils/solarDate.js';
 import { getLineItemAmount, parseOrderLineItems } from '../../utils/orderDisplay.js';
 
 export default function OrderDetailModal({
@@ -90,15 +91,15 @@ export default function OrderDetailModal({
             Number(updated?.paidAmount ?? displayOrder.paidAmount ?? 0),
         );
         if (rem <= 0 && paid > 0) {
-          notify.success('Status updated', 'Delivered — order was already paid when created.');
+          notify.success(t('toasts.statusUpdated'), t('toasts.deliveredAlreadyPaid'));
         } else {
-          notify.success('Status updated', `Order is now ${nextStatus}`);
+          notify.success(t('toasts.statusUpdated'), t('toasts.statusNow', { status: t(`status.${nextStatus}`, { defaultValue: nextStatus }) }));
         }
       } else {
-        notify.success('Status updated', `Order is now ${nextStatus}`);
+        notify.success(t('toasts.statusUpdated'), t('toasts.statusNow', { status: t(`status.${nextStatus}`, { defaultValue: nextStatus }) }));
       }
     } catch (err) {
-      notify.error('Status update failed', err.message || 'Could not update order status.');
+      notify.error(t('toasts.statusUpdateFailed'), err.message || t('toasts.couldNotUpdateStatus'));
     } finally {
       setStatusUpdating(false);
     }
@@ -109,12 +110,12 @@ export default function OrderDetailModal({
 
     if (paymentReceived) {
       if (orderRemaining <= 0) {
-        notify.success('Payment complete', 'This order was already paid in full (including at booking).');
+        notify.success(t('toasts.paymentComplete'), t('toasts.alreadyPaidFull'));
         finishPaymentFlow();
         return;
       }
       if (!amount || amount <= 0) {
-        notify.warning('Invalid amount', 'Enter the payment received or uncheck Payment Received.');
+        notify.warning(t('toasts.invalidAmount'), t('toasts.invalidAmountDesc'));
         return;
       }
     }
@@ -126,13 +127,13 @@ export default function OrderDetailModal({
         markDelivered: false,
       });
       if (paymentReceived && amount > 0) {
-        notify.success('Payment recorded', `₹${amount.toLocaleString()} applied to customer balance`);
+        notify.success(t('toasts.paymentRecorded'), t('toasts.paymentAppliedBalance', { amount: amount.toLocaleString() }));
       } else if (!paymentReceived) {
-        notify.info('Saved without payment', 'Remaining amount stays as debt on this order.');
+        notify.info(t('toasts.savedWithoutPayment'), t('toasts.savedWithoutPaymentDesc'));
       }
       finishPaymentFlow();
     } catch (err) {
-      notify.error('Payment failed', err.message || 'Could not record payment.');
+      notify.error(t('toasts.paymentFailed'), err.message || t('toasts.couldNotRecordPayment'));
     }
   };
 
@@ -152,19 +153,19 @@ export default function OrderDetailModal({
               ...(fabricMeters !== undefined && fabricMeters !== '' && fabricMeters != null
                 ? [[t('detail.fabricMeters'), String(fabricMeters)]]
                 : []),
-              [t('detail.totalAmount'), `₹${total.toLocaleString()}`],
+              [t('detail.totalAmount'), `؋${total.toLocaleString()}`],
               ...(bookingCash > 0
-                ? [[t('detail.cashBooking'), `₹${bookingCash.toLocaleString()}`]]
+                ? [[t('detail.cashBooking'), `؋${bookingCash.toLocaleString()}`]]
                 : []),
-              [t('detail.paidOnOrder'), `₹${paid.toLocaleString()}`],
+              [t('detail.paidOnOrder'), `؋${paid.toLocaleString()}`],
               ...(bookingToDebt > 0
-                ? [[t('detail.fromDebt'), `₹${bookingToDebt.toLocaleString()}`]]
+                ? [[t('detail.fromDebt'), `؋${bookingToDebt.toLocaleString()}`]]
                 : []),
               ...(bookingToPrepaid > 0
-                ? [[t('detail.fromPrepaid'), `₹${bookingToPrepaid.toLocaleString()}`]]
+                ? [[t('detail.fromPrepaid'), `؋${bookingToPrepaid.toLocaleString()}`]]
                 : []),
-              [t('detail.remainingOrder'), `₹${orderRemaining.toLocaleString()}`],
-              [t('common.deliveryDate'), displayOrder.deliveryDate || '—'],
+              [t('detail.remainingOrder'), `؋${orderRemaining.toLocaleString()}`],
+              [t('common.deliveryDate'), formatSolarDisplay(displayOrder.deliveryDate)],
               [t('common.color'), displayOrder.color || '—'],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-background px-3 py-2">
@@ -186,11 +187,11 @@ export default function OrderDetailModal({
                       <span className="text-ink-muted">
                         {line.orderType}
                         {qty > 1 || unit > 0 ? (
-                          <span className="text-xs"> ({qty} × ₹{unit.toLocaleString()})</span>
+                          <span className="text-xs"> ({qty} × ؋{unit.toLocaleString()})</span>
                         ) : null}
                       </span>
                       <span className="font-semibold text-ink">
-                        ₹{getLineItemAmount(line).toLocaleString()}
+                        ؋{getLineItemAmount(line).toLocaleString()}
                       </span>
                     </div>
                   );
@@ -204,12 +205,12 @@ export default function OrderDetailModal({
               <div>
                 <p className="text-xs text-ink-muted">{t('detail.customerDebt')}</p>
                 <p className={`font-bold ${customerBalance.debt > 0 ? 'text-danger' : 'text-success'}`}>
-                  ₹{Number(customerBalance.debt || 0).toLocaleString()}
+                  ؋{Number(customerBalance.debt || 0).toLocaleString()}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-ink-muted">{t('detail.customerPrepaid')}</p>
-                <p className="font-bold text-success">₹{Number(customerBalance.credit || 0).toLocaleString()}</p>
+                <p className="font-bold text-success">؋{Number(customerBalance.credit || 0).toLocaleString()}</p>
               </div>
             </div>
           )}

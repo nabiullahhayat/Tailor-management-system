@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
+import SolarDatePicker from '../components/ui/SolarDatePicker.jsx';
 import Button from '../components/ui/Button.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import { useCustomers } from '../context/CustomerContext.jsx';
 import { useOrders } from '../context/OrderContext.jsx';
 import { addsService, orderService } from '../services/index.js';
-import { getTodaySolar, normalizeSolarDateString } from '../utils/solarDate.js';
+import { getTodaySolar, isSolarDateBefore, normalizeSolarDateString } from '../utils/solarDate.js';
 import { notify } from '../utils/toast.js';
 import {
   buildOrderCustomerBalanceMap,
@@ -195,6 +196,9 @@ export default function AddOrderPage() {
     if (totalAmount <= 0 && selectedTypeIds.length > 0) e.orderType = t('newOrder.priceRequired');
     if (!solarDate.trim()) e.solarDate = t('newOrder.dateRequired');
     if (!deliveryDate.trim()) e.delivery = t('newOrder.deliveryRequired');
+    else if (isSolarDateBefore(deliveryDate, getTodaySolar())) {
+      e.delivery = t('newOrder.deliveryMinToday');
+    }
     if (!hasCustomerPaid) e.hasPaid = t('newOrder.paidRequired');
     if (hasCustomerPaid === 'yes' && cashPaid !== '' && Number.isNaN(Number(cashPaid))) {
       e.cashPaid = t('newOrder.paidRequired');
@@ -305,12 +309,18 @@ export default function AddOrderPage() {
     setCashPaid('');
     let creditMsg = '';
     if (checkout?.cashAppliedToDebt > 0) {
-      creditMsg += ` · ₹${checkout.cashAppliedToDebt.toLocaleString()} applied to old remaining`;
+      creditMsg += t('newOrder.creditAppliedDebt', { amount: checkout.cashAppliedToDebt.toLocaleString() });
     }
     if (checkout?.surplusToPrepaid > 0) {
-      creditMsg += ` · ₹${checkout.surplusToPrepaid.toLocaleString()} prepaid credit`;
+      creditMsg += t('newOrder.creditPrepaid', { amount: checkout.surplusToPrepaid.toLocaleString() });
     }
-    notify.success('Order created', `${orderTypeLabel || 'Order'} saved successfully${creditMsg}`);
+    notify.success(
+      t('newOrder.created'),
+      t('newOrder.createdDesc', {
+        label: orderTypeLabel || t('ledger.Order'),
+        credit: creditMsg,
+      }),
+    );
   };
 
   const orderPaidDisplay = checkoutPreview?.orderPaidAmount ?? 0;
@@ -324,7 +334,7 @@ export default function AddOrderPage() {
       return [
         {
           label: type.name,
-          value: `${qty} × ₹${unit.toLocaleString()} = ₹${lineTotalForType(type.id).toLocaleString()}`,
+          value: `${qty} × ؋${unit.toLocaleString()} = ؋${lineTotalForType(type.id).toLocaleString()}`,
         },
       ];
     }),
@@ -332,29 +342,29 @@ export default function AddOrderPage() {
       ? [{ label: t('detail.fabricMeters'), value: customerFabricMeters }]
       : []),
     { label: t('common.deliveryDate'), value: deliveryDate },
-    { label: t('detail.totalAmount'), value: `₹${totalAmount.toLocaleString()}`, highlight: true },
+    { label: t('detail.totalAmount'), value: `؋${totalAmount.toLocaleString()}`, highlight: true },
     ...(checkoutPreview?.walletUsed > 0
-      ? [{ label: t('salesExtra.prepaidApplied'), value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.prepaidApplied'), value: `؋${checkoutPreview.walletUsed.toLocaleString()}` }]
       : []),
     ...(checkoutPreview?.walletUsed > 0 && checkoutPreview.orderRemaining >= 0
       ? [
           {
             label: t('salesExtra.dueAfter'),
-            value: `₹${Math.max(0, totalAmount - (checkoutPreview.walletUsed || 0)).toLocaleString()}`,
+            value: `؋${Math.max(0, totalAmount - (checkoutPreview.walletUsed || 0)).toLocaleString()}`,
           },
         ]
       : []),
     ...(checkoutPreview?.cashAppliedToDebt > 0
-      ? [{ label: t('detail.cashToDebt'), value: `₹${checkoutPreview.cashAppliedToDebt.toLocaleString()}` }]
+      ? [{ label: t('detail.cashToDebt'), value: `؋${checkoutPreview.cashAppliedToDebt.toLocaleString()}` }]
       : []),
-    { label: t('detail.paidOnOrder'), value: `₹${orderPaidDisplay.toLocaleString()}` },
+    { label: t('detail.paidOnOrder'), value: `؋${orderPaidDisplay.toLocaleString()}` },
     {
       label: t('detail.remainingOrder'),
-      value: `₹${orderRemainingDisplay.toLocaleString()}`,
+      value: `؋${orderRemainingDisplay.toLocaleString()}`,
       highlight: orderRemainingDisplay > 0,
     },
     ...(checkoutPreview?.surplusToPrepaid > 0
-      ? [{ label: t('salesExtra.addedPrepaid'), value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.addedPrepaid'), value: `؋${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
       : []),
     { label: t('salesExtra.paymentStatus'), value: t(`status.${checkoutPreview?.paymentStatus || paymentStatusLabel()}`) },
   ];
@@ -417,12 +427,12 @@ export default function AddOrderPage() {
                   <div>
                     <p className="text-xs text-ink-muted">{t('newOrder.debt')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
-                      ₹{outstandingDebt.toLocaleString()}
+                      ؋{outstandingDebt.toLocaleString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-ink-muted">{t('newOrder.prepaid')}</p>
-                    <p className="text-base font-bold text-success">₹{prepaidAvailable.toLocaleString()}</p>
+                    <p className="text-base font-bold text-success">؋{prepaidAvailable.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -594,11 +604,11 @@ export default function AddOrderPage() {
                         <span>
                           {type.name}{' '}
                           <span className="text-ink-muted">
-                            ({qty} × ₹{unit.toLocaleString()})
+                            ({qty} × ؋{unit.toLocaleString()})
                           </span>
                         </span>
                         <span className="font-semibold text-ink">
-                          ₹{lineTotalForType(type.id).toLocaleString()}
+                          ؋{lineTotalForType(type.id).toLocaleString()}
                         </span>
                       </li>
                     );
@@ -607,7 +617,7 @@ export default function AddOrderPage() {
               )}
               <div className="my-3 rounded-xl bg-emerald-50 px-4 py-2">
                 <p className="text-xs text-ink-muted">{t('newOrder.totalAmount')}</p>
-                <p className="text-xl font-extrabold text-success">₹{totalAmount.toLocaleString()}</p>
+                <p className="text-xl font-extrabold text-success">؋{totalAmount.toLocaleString()}</p>
               </div>
 
               <p className="mb-2 text-xs text-ink-muted">
@@ -663,16 +673,16 @@ export default function AddOrderPage() {
                 <div className="mt-3 rounded-xl border border-black/5 bg-background px-3 py-2 text-xs leading-relaxed">
                   {checkoutPreview.walletUsed > 0 && (
                     <p>
-                      {t('salesExtra.prepaidApplied')}: <strong>₹{checkoutPreview.walletUsed.toLocaleString()}</strong>
+                      {t('salesExtra.prepaidApplied')}: <strong>؋{checkoutPreview.walletUsed.toLocaleString()}</strong>
                     </p>
                   )}
                   <p>
-                    {t('detail.paidOnOrder')}: <strong>₹{orderPaidDisplay.toLocaleString()}</strong>
+                    {t('detail.paidOnOrder')}: <strong>؋{orderPaidDisplay.toLocaleString()}</strong>
                   </p>
                   <p>
                     {t('common.remaining')}:{' '}
                     <strong className={orderRemainingDisplay > 0 ? 'text-danger' : 'text-success'}>
-                      ₹{orderRemainingDisplay.toLocaleString()}
+                      ؋{orderRemainingDisplay.toLocaleString()}
                     </strong>
                   </p>
                   {checkoutPreview.cashAppliedToDebt > 0 && (
@@ -699,18 +709,21 @@ export default function AddOrderPage() {
                     ))}
                   </select>
                 )}
-                <Input
+                <SolarDatePicker
                   label={t('newOrder.orderDate')}
                   value={solarDate}
-                  onChange={(e) => setSolarDate(e.target.value)}
+                  onChange={setSolarDate}
                   error={errors.solarDate}
+                  allowEmpty={false}
                 />
-                <Input
+                <SolarDatePicker
                   label={t('newOrder.delivery')}
                   value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  onChange={setDeliveryDate}
                   placeholder={getTodaySolar()}
+                  minDate={getTodaySolar()}
                   error={errors.delivery}
+                  allowEmpty
                 />
                 <Input label={t('common.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>

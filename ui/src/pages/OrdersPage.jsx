@@ -14,6 +14,7 @@ import EditOrderModal from '../components/modals/EditOrderModal.jsx';
 import { useOrders } from '../context/OrderContext.jsx';
 import { useCustomers } from '../context/CustomerContext.jsx';
 import { formatCurrency } from '../utils/chartData.js';
+import { formatSolarDisplay } from '../utils/solarDate.js';
 import { buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
 import { notify } from '../utils/toast.js';
 const STATUS_FILTERS = ['All', 'Finding', 'Ready', 'Delivered'];
@@ -100,7 +101,7 @@ export default function OrdersPage() {
         </span>
       ),
     },
-    { key: 'delivery', label: t('orders.del'), className: 'whitespace-nowrap', render: (r) => r.deliveryDate?.split('T')[0] || '—' },
+    { key: 'delivery', label: t('orders.del'), className: 'whitespace-nowrap', render: (r) => formatSolarDisplay(r.deliveryDate) },
     { key: 'amount', label: t('common.total'), className: 'whitespace-nowrap', render: (r) => formatCurrency(r.totalAmount) },
     {
       key: 'paid',
@@ -127,10 +128,10 @@ export default function OrdersPage() {
         const debt = balanceMap[cid].creditRemaining;
         const credit = balanceMap[cid].prepaidCredit;
         if (credit > 0) {
-          return <span className="text-xs text-success">{t('common.credit')} ₹{credit.toLocaleString()}</span>;
+          return <span className="text-xs text-success">{t('common.credit')} ؋{credit.toLocaleString()}</span>;
         }
         if (debt > 0) {
-          return <span className="text-xs text-danger">{t('common.debt')} ₹{debt.toLocaleString()}</span>;
+          return <span className="text-xs text-danger">{t('common.debt')} ؋{debt.toLocaleString()}</span>;
         }
         return <span className="text-xs text-ink-muted">{t('common.settled')}</span>;
       },

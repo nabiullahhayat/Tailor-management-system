@@ -59,16 +59,16 @@ export default function AddsPage() {
 
   const validateOrderType = () => {
     const e = {};
-    if (!otName.trim()) e.name = 'Order type name is required.';
+    if (!otName.trim()) e.name = t('validation.orderTypeNameRequired');
     const trimmed = otMeasurements.map((m) => m.trim());
     if (trimmed.every((m) => !m)) {
-      e.measurements = 'Add at least one measurement name.';
+      e.measurements = t('addsExtra.measurementOneRequired');
     } else if (trimmed.some((m) => !m)) {
-      e.measurements = 'Fill every measurement field or remove empty rows.';
+      e.measurements = t('addsExtra.fillAllMeasurements');
     }
     setTypeErrors(e);
     if (Object.keys(e).length > 0) {
-      notify.warning('Cannot save order type', e.measurements || e.name);
+      notify.warning(t('toasts.cannotSaveOrderType'), e.measurements || e.name);
     }
     return Object.keys(e).length === 0;
   };
@@ -90,9 +90,9 @@ export default function AddsPage() {
       setEditingTypeId(null);
       setTypeErrors({});
       await loadData();
-      notify.success('Order type saved');
+      notify.success(t('toasts.orderTypeSaved'));
     } catch (err) {
-      notify.error('Could not save order type', err.message);
+      notify.error(t('toasts.couldNotSaveOrderType'), err.message);
     } finally {
       setSavingType(false);
     }
@@ -123,24 +123,24 @@ export default function AddsPage() {
 
   const validateEmployee = () => {
     const e = {};
-    if (!empName.trim()) e.name = 'Employee name is required.';
-    if (!empPhone.trim()) e.phone = 'Phone is required.';
-    else if (!/^\d+$/.test(empPhone)) e.phone = 'Digits only.';
-    else if (empPhone.length !== 10) e.phone = 'Must be exactly 10 digits.';
-    else if (!empPhone.startsWith('07')) e.phone = 'Must start with 07.';
+    if (!empName.trim()) e.name = t('validation.employeeNameRequired');
+    if (!empPhone.trim()) e.phone = t('validation.phoneRequired');
+    else if (!/^\d+$/.test(empPhone)) e.phone = t('validation.digitsOnly');
+    else if (empPhone.length !== 10) e.phone = t('validation.phoneTenDigits');
+    else if (!empPhone.startsWith('07')) e.phone = t('validation.phoneStarts07');
     setEmpErrors(e);
     if (Object.keys(e).length > 0) {
-      notify.warning('Cannot save employee', 'Fill name and a valid phone (07xxxxxxxx).');
+      notify.warning(t('toasts.cannotSaveEmployee'), t('toasts.cannotSaveEmployeeDesc'));
     }
     return Object.keys(e).length === 0;
   };
 
   const validateCustomerMeasurement = () => {
     const e = {};
-    if (!cmName.trim()) e.name = 'Measurement name is required.';
+    if (!cmName.trim()) e.name = t('validation.measurementNameRequired');
     setCmErrors(e);
     if (Object.keys(e).length > 0) {
-      notify.warning('Cannot save', 'Enter a measurement name.');
+      notify.warning(t('toasts.cannotSave'), t('toasts.enterMeasurementName'));
     }
     return Object.keys(e).length === 0;
   };
@@ -158,9 +158,9 @@ export default function AddsPage() {
       setEditingCmId(null);
       setCmErrors({});
       await loadData();
-      notify.success('Customer measurement saved');
+      notify.success(t('toasts.measurementSaved'));
     } catch (err) {
-      notify.error('Could not save', err.message);
+      notify.error(t('toasts.couldNotSave'), err.message);
     } finally {
       setSavingCm(false);
     }
@@ -189,9 +189,9 @@ export default function AddsPage() {
       setEditingEmpId(null);
       setEmpErrors({});
       await loadData();
-      notify.success('Employee saved');
+      notify.success(t('toasts.employeeSaved'));
     } catch (err) {
-      notify.error('Could not save employee', err.message);
+      notify.error(t('toasts.couldNotSaveEmployee'), err.message);
     } finally {
       setSavingEmp(false);
     }
@@ -466,7 +466,7 @@ export default function AddsPage() {
                   <div>
                     <p className="font-bold text-ink">{emp.name}</p>
                     <p className="text-sm text-ink-muted">{emp.phone}</p>
-                    <p className="text-sm font-semibold text-success">₹{Number(emp.salary || 0).toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-success">؋{Number(emp.salary || 0).toLocaleString()}</p>
                   </div>
                   <TableRowActions
                     onView={() => setViewRecord({ kind: 'employee', data: emp })}
@@ -514,7 +514,7 @@ export default function AddsPage() {
             </div>
             <div className="flex justify-between rounded-lg bg-background px-3 py-2">
               <span className="text-ink-muted">{t('addsExtra.salary')}</span>
-              <span className="font-semibold">₹{Number(viewRecord.data.salary || 0).toLocaleString()}</span>
+              <span className="font-semibold">؋{Number(viewRecord.data.salary || 0).toLocaleString()}</span>
             </div>
           </div>
         )}
@@ -535,9 +535,9 @@ export default function AddsPage() {
             } else await addsService.deleteEmployee(deleteTarget.id);
             setDeleteTarget(null);
             await loadData();
-            notify.success('Record deleted');
+            notify.success(t('toasts.recordDeleted'));
           } catch (err) {
-            notify.error('Delete failed', err.message);
+            notify.error(t('toasts.deleteFailed'), err.message);
           }
         }}
       />

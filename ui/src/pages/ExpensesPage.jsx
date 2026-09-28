@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import { DATA_CHANGED_EVENT } from '../utils/dataSync.js';
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -12,25 +16,39 @@ import {
 } from 'recharts';
 import { Plus } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
-import KpiCard from '../components/desktop/KpiCard.jsx';
+import KpiChartCard from '../components/desktop/KpiChartCard.jsx';
 import ChartCard from '../components/desktop/ChartCard.jsx';
+import ChartAreaGradients from '../components/charts/ChartAreaGradients.jsx';
+import ChartTooltip from '../components/charts/ChartTooltip.jsx';
+import ModernBarGradients, { barGradientUrl } from '../components/charts/ModernBarGradients.jsx';
+import {
+  AREA_EXPENSE,
+  CHART_ANIMATION,
+  CHART_GRID,
+  CHART_MARGIN,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import Input from '../components/ui/Input.jsx';
+import SolarDatePicker from '../components/ui/SolarDatePicker.jsx';
+import { formatSolarDisplay, getTodaySolar } from '../utils/solarDate.js';
 import Button from '../components/ui/Button.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
 import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { expenseService } from '../services/index.js';
-import { formatCurrency, getExpensesByCategory } from '../utils/chartData.js';
+import { formatCurrency, formatCurrencyAxis, getExpensesByCategory, getExpensesMonthlyTrend } from '../utils/chartData.js';
 import { notify } from '../utils/toast.js';
 import { TrendingDown } from 'lucide-react';
 
 const CATEGORY_FILTERS = ['All', 'Fabric', 'Machinery', 'Other'];
 
-const emptyForm = { name: '', category: 'Other', amount: '', date: '', description: '' };
+const emptyForm = { name: '', category: 'Other', amount: '', date: getTodaySolar(), description: '' };
 
 export default function ExpensesPage() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [expenses, setExpenses] = useState([]);
   const [filter, setFilter] = useState('All');
   const [addOpen, setAddOpen] = useState(false);
@@ -46,6 +64,17 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     load();
+  }, [load, location.key]);
+
+  useEffect(() => {
+    const onDataChanged = (event) => {
+      const collection = event.detail?.collection;
+      if (!collection || collection === 'expenses' || collection === 'transactions') {
+        load();
+      }
+    };
+    window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
   }, [load]);
 
   const filtered = useMemo(() => {
@@ -54,6 +83,10 @@ export default function ExpensesPage() {
   }, [expenses, filter]);
 
   const total = filtered.reduce((s, e) => s + (e.amount || 0), 0);
+  const filteredTrendData = useMemo(
+    () => getExpensesMonthlyTrend(filtered),
+    [filtered],
+  );
   const chartData = useMemo(
     () => getExpensesByCategory(expenses).map((row) => ({
       ...row,
@@ -75,7 +108,7 @@ export default function ExpensesPage() {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.amount || !form.date) {
-      notify.error('Missing fields', 'Please fill name, amount, and date.');
+      notify.error(t('toasts.missingFields'), t('toasts.missingFieldsDesc'));
       return;
     }
     const payload = {
@@ -88,11 +121,11 @@ export default function ExpensesPage() {
     };
     if (editTarget) {
       await expenseService.update(editTarget.id, payload);
-      notify.success('Expense updated');
+      notify.success(t('toasts.expenseUpdated'));
       setEditTarget(null);
     } else {
       await expenseService.add(payload);
-      notify.success('Expense added', `${form.name} saved successfully`);
+      notify.success(t('toasts.expenseAdded'), t('toasts.expenseAddedDesc', { name: form.name }));
       setAddOpen(false);
     }
     setForm(emptyForm);
@@ -102,7 +135,7 @@ export default function ExpensesPage() {
   const columns = [
     { key: 'name', label: t('expenses.expense'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'category', label: t('expenses.category'), render: (r) => t(`filters.${r.category}`, { defaultValue: r.category }) },
-    { key: 'date', label: t('common.date'), render: (r) => r.date },
+    { key: 'date', label: t('common.date'), render: (r) => formatSolarDisplay(r.date) },
     { key: 'description', label: t('common.notes'), render: (r) => r.description || '—' },
     { key: 'amount', label: t('common.amount'), render: (r) => <span className="font-bold text-danger">{formatCurrency(r.amount)}</span> },
     {
@@ -131,7 +164,12 @@ export default function ExpensesPage() {
         </div>
       </div>
       <Input label={t('expensesExtra.amount')} type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
-      <Input label={t('expensesExtra.date')} type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+      <SolarDatePicker
+        label={t('expensesExtra.date')}
+        value={form.date}
+        onChange={(date) => setForm((p) => ({ ...p, date }))}
+        allowEmpty={false}
+      />
       <Input label={t('expensesExtra.description')} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
     </>
   );
@@ -145,18 +183,54 @@ export default function ExpensesPage() {
         actions={<Button onClick={() => { setForm(emptyForm); setAddOpen(true); }}><Plus size={16} /> {t('expensesExtra.add')}</Button>}
       >
         <section className="mb-8 grid gap-4 sm:grid-cols-2">
-          <KpiCard title={t('expenses.filtered')} value={formatCurrency(total)} subtitle={t('expensesExtra.records', { count: filtered.length })} icon={TrendingDown} accent="danger" />
+          <KpiChartCard
+            title={t('expenses.filtered')}
+            value={formatCurrency(total)}
+            subtitle={t('expensesExtra.records', { count: filtered.length })}
+            icon={TrendingDown}
+            accent="danger"
+          >
+            <p className="mb-2 text-xs font-medium text-ink-muted">{t('expensesExtra.filteredTrend')}</p>
+            <div className="h-36">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={filteredTrendData} margin={{ ...CHART_MARGIN, left: 0, right: 4 }}>
+                  <ChartAreaGradients />
+                  <CartesianGrid {...CHART_GRID} vertical={false} />
+                  <XAxis dataKey="month" {...chartXAxisProps({ interval: 0, tick: { fill: '#64748b', fontSize: 10, fontWeight: 500 } })} />
+                  <YAxis
+                    {...chartYAxisProps({
+                      width: 40,
+                      tickFormatter: formatCurrencyAxis,
+                    })}
+                  />
+                  <Tooltip content={<ChartTooltip valueFormatter={(v) => formatCurrency(v)} labelFormatter={(l) => l} />} />
+                  <Area
+                    type="monotone"
+                    dataKey="amount"
+                    name={t('dashboard.expense')}
+                    stroke="url(#chartExpenseStroke)"
+                    fill={`url(#${AREA_EXPENSE.fillId})`}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: AREA_EXPENSE.stroke }}
+                    {...CHART_ANIMATION}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </KpiChartCard>
           <ChartCard title={t('expensesExtra.spend')} subtitle={t('expensesExtra.spendHint')}>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${v / 1000}k`} />
-                  <Tooltip formatter={(v) => formatCurrency(v)} />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                <BarChart data={chartData} margin={CHART_MARGIN} barCategoryGap="28%">
+                  <ModernBarGradients data={chartData} idPrefix="expPageBar" />
+                  <CartesianGrid {...CHART_GRID} vertical={false} />
+                  <XAxis dataKey="name" {...chartXAxisProps()} />
+                  <YAxis {...chartYAxisProps({ tickFormatter: formatCurrencyAxis })} />
+                  <Tooltip content={<ChartTooltip valueFormatter={(v) => formatCurrency(v)} />} />
+                  <Bar dataKey="amount" radius={[8, 8, 0, 0]} maxBarSize={48} {...CHART_ANIMATION}>
                     {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.fill} />
+                      <Cell key={entry.name} fill={barGradientUrl(entry.fill, 'expPageBar')} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -210,7 +284,7 @@ export default function ExpensesPage() {
         onConfirm={async () => {
           await expenseService.delete(deleteTarget.id);
           setDeleteTarget(null);
-          notify.success('Expense deleted');
+          notify.success(t('toasts.expenseDeleted'));
           load();
         }}
       />

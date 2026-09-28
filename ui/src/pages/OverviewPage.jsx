@@ -27,7 +27,22 @@ import {
 } from 'lucide-react';
 import PageShell from '../components/desktop/PageShell.jsx';
 import KpiCard from '../components/desktop/KpiCard.jsx';
+import KpiChartCard from '../components/desktop/KpiChartCard.jsx';
 import ChartCard from '../components/desktop/ChartCard.jsx';
+import VerticalCategoryBarChart from '../components/desktop/VerticalCategoryBarChart.jsx';
+import ChartAreaGradients from '../components/charts/ChartAreaGradients.jsx';
+import ChartTooltip from '../components/charts/ChartTooltip.jsx';
+import ModernBarGradients, { barGradientUrl } from '../components/charts/ModernBarGradients.jsx';
+import {
+  CHART_ANIMATION,
+  CHART_GRID,
+  CHART_MARGIN,
+  AREA_EXPENSE,
+  AREA_INCOME,
+  LEGEND_STYLE,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
@@ -41,6 +56,8 @@ import { expenseService } from '../services/index.js';
 import * as store from '../storage/localStore.js';
 import {
   formatCurrency,
+  formatCurrencyAxis,
+  getCurrentMonthDailyRevenueExpense,
   getExpensesByCategory,
   getMonthlyRevenueExpense,
   getOrdersByStatus,
@@ -48,6 +65,14 @@ import {
 } from '../utils/chartData.js';
 import { buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
 import { toLocalDateKey } from '../utils/orderDelivery.js';
+import { DATA_CHANGED_EVENT } from '../utils/dataSync.js';
+import SolarDatePicker from '../components/ui/SolarDatePicker.jsx';
+import { getTodaySolar } from '../utils/solarDate.js';
+import {
+  computeDashboardKpis,
+  DASHBOARD_PERIODS,
+  getDashboardPeriodBounds,
+} from '../utils/dashboardPeriod.js';
 
 function resolveCustomerId(order, customers) {
   if (order.customerId) return order.customerId;
@@ -55,12 +80,6 @@ function resolveCustomerId(order, customers) {
   if (!name) return null;
   return customers.find((c) => c.name.toLowerCase() === name)?.id ?? null;
 }
-
-const CHART_TOOLTIP_STYLE = {
-  borderRadius: 8,
-  border: '1px solid rgba(0,0,0,0.06)',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-};
 
 export default function OverviewPage() {
   const { t } = useTranslation();
@@ -71,6 +90,9 @@ export default function OverviewPage() {
   const [income, setIncome] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [period, setPeriod] = useState('today');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   const liveSelectedOrder = useMemo(
     () => (selectedOrder ? orders.find((o) => o.id === selectedOrder.id) ?? selectedOrder : null),
@@ -107,12 +129,85 @@ export default function OverviewPage() {
     fetchDashboard();
   }, [fetchDashboard, orders.length, customers.length, sales.length]);
 
+  useEffect(() => {
+    const onDataChanged = (event) => {
+      const collection = event.detail?.collection;
+      if (collection === 'expenses' || collection === 'transactions' || collection === 'income') {
+        fetchDashboard();
+      }
+    };
+    window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
+  }, [fetchDashboard]);
+
+  const periodBounds = useMemo(
+    () => getDashboardPeriodBounds(period, customFrom, customTo),
+    [period, customFrom, customTo],
+  );
+
+  const kpiStats = useMemo(
+    () =>
+      computeDashboardKpis({
+        orders,
+        income,
+        sales,
+        customers,
+        startKey: periodBounds.startKey,
+        endKey: periodBounds.endKey,
+      }),
+    [orders, income, sales, customers, periodBounds],
+  );
+
+  useEffect(() => {
+    if (period !== 'custom') return;
+    const today = getTodaySolar();
+    if (!customFrom) setCustomFrom(today);
+    if (!customTo) setCustomTo(today);
+  }, [period, customFrom, customTo]);
+
+  const kpiLabels = useMemo(() => {
+    if (period === 'today') {
+      return {
+        orders: t('dashboard.todayOrders'),
+        income: t('dashboard.todayIncome'),
+        pending: t('dashboard.pendingOrders'),
+        customers: t('dashboard.todayNewCustomers'),
+        ordersHint: t('dashboard.todayOrdersHint'),
+        incomeHint: t('dashboard.todayIncomeHint'),
+        pendingHint: t('dashboard.pendingHint'),
+        customersHint: t('dashboard.todayNewCustomersHint'),
+      };
+    }
+    return {
+      orders: t('dashboard.kpiOrders'),
+      income: t('dashboard.kpiIncome'),
+      pending: t('dashboard.kpiPending'),
+      customers: t('dashboard.kpiNewCustomers'),
+      ordersHint: t('dashboard.kpiOrdersHint'),
+      incomeHint: t('dashboard.kpiIncomeHint'),
+      pendingHint: t('dashboard.kpiPendingHint'),
+      customersHint: t('dashboard.kpiCustomersHint'),
+    };
+  }, [period, t]);
+
+  const periodChipLabel = (key) => {
+    const map = {
+      today: 'dashboard.periodToday',
+      week: 'dashboard.periodWeek',
+      month: 'dashboard.periodMonth',
+      year: 'dashboard.periodYear',
+      custom: 'dashboard.periodCustom',
+    };
+    return t(map[key] || key);
+  };
+
   const monthlyData = useMemo(
-    () => getMonthlyRevenueExpense({ income, expenses, sales }).map((row) => ({
-      ...row,
-      month: t(`months.${row.month}`, { defaultValue: row.month }),
-    })),
-    [income, expenses, sales, t],
+    () => getMonthlyRevenueExpense({ income, expenses, sales }),
+    [income, expenses, sales],
+  );
+  const currentMonthDailyData = useMemo(
+    () => getCurrentMonthDailyRevenueExpense({ income, expenses, sales }),
+    [income, expenses, sales],
   );
   const statusData = useMemo(
     () => getOrdersByStatus(orders).map((row) => ({
@@ -178,34 +273,69 @@ export default function OverviewPage() {
           </>
         }
       >
+        <section className="mb-4 flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            {DASHBOARD_PERIODS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPeriod(key)}
+                className={`filter-chip ${period === key ? 'filter-chip-active' : ''}`}
+              >
+                {periodChipLabel(key)}
+              </button>
+            ))}
+          </div>
+          {period === 'custom' && (
+            <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+              <SolarDatePicker
+                label={t('dashboard.periodFrom')}
+                value={customFrom}
+                onChange={setCustomFrom}
+                placeholder={getTodaySolar()}
+                allowEmpty={false}
+                className="mb-0"
+              />
+              <SolarDatePicker
+                label={t('dashboard.periodTo')}
+                value={customTo}
+                onChange={setCustomTo}
+                placeholder={getTodaySolar()}
+                allowEmpty={false}
+                className="mb-0"
+              />
+            </div>
+          )}
+        </section>
+
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
-            title={t('dashboard.todayOrders')}
-            value={String(dashboardData?.today?.orders ?? 0)}
-            subtitle={t('dashboard.todayOrdersHint')}
+            title={kpiLabels.orders}
+            value={String(kpiStats.orderCount)}
+            subtitle={kpiLabels.ordersHint}
             icon={Receipt}
             accent="info"
-            trendLabel={t('detail.vsYesterday')}
+            trendLabel={period === 'today' ? t('detail.vsYesterday') : undefined}
           />
           <KpiCard
-            title={t('dashboard.todayIncome')}
-            value={formatCurrency(dashboardData?.today?.income ?? 0)}
-            subtitle={t('dashboard.todayIncomeHint')}
+            title={kpiLabels.income}
+            value={formatCurrency(kpiStats.totalIncome)}
+            subtitle={kpiLabels.incomeHint}
             icon={Banknote}
             accent="success"
-            trendLabel={t('detail.onTrack')}
+            trendLabel={period === 'today' ? t('detail.onTrack') : undefined}
           />
           <KpiCard
-            title={t('dashboard.pendingOrders')}
-            value={String(dashboardData?.overview?.pendingOrders ?? pendingOrders.length)}
-            subtitle={t('dashboard.pendingHint')}
+            title={kpiLabels.pending}
+            value={String(kpiStats.pendingOrders)}
+            subtitle={kpiLabels.pendingHint}
             icon={Clock}
             accent="warning"
           />
           <KpiCard
-            title={t('dashboard.totalCustomers')}
-            value={String(dashboardData?.overview?.totalCustomers ?? customers.length)}
-            subtitle={t('dashboard.customersHint')}
+            title={kpiLabels.customers}
+            value={String(kpiStats.newCustomers)}
+            subtitle={kpiLabels.customersHint}
             icon={Users}
             accent="navy"
           />
@@ -216,24 +346,35 @@ export default function OverviewPage() {
             <ChartCard title={t('dashboard.revenue')} subtitle={t('dashboard.last6')}>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData}>
-                    <defs>
-                      <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00a76f" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#00a76f" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ff5630" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#ff5630" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${v / 1000}k`} />
-                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v) => formatCurrency(v)} />
-                    <Legend />
-                    <Area type="monotone" dataKey="income" stroke="#00a76f" fill="url(#incomeGrad)" strokeWidth={2} name={t('dashboard.income')} />
-                    <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="url(#expenseGrad)" strokeWidth={2} name={t('dashboard.expense')} />
+                  <AreaChart data={monthlyData} margin={CHART_MARGIN}>
+                    <ChartAreaGradients />
+                    <CartesianGrid {...CHART_GRID} vertical={false} />
+                    <XAxis dataKey="month" {...chartXAxisProps()} />
+                    <YAxis {...chartYAxisProps({ tickFormatter: formatCurrencyAxis })} />
+                    <Tooltip content={<ChartTooltip valueFormatter={(v) => formatCurrency(v)} />} />
+                    <Legend iconType="circle" wrapperStyle={LEGEND_STYLE} />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stroke="url(#chartIncomeStroke)"
+                      fill={`url(#${AREA_INCOME.fillId})`}
+                      strokeWidth={2.5}
+                      name={t('dashboard.income')}
+                      dot={false}
+                      activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: AREA_INCOME.stroke }}
+                      {...CHART_ANIMATION}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expense"
+                      stroke="url(#chartExpenseStroke)"
+                      fill={`url(#${AREA_EXPENSE.fillId})`}
+                      strokeWidth={2.5}
+                      name={t('dashboard.expense')}
+                      dot={false}
+                      activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: AREA_EXPENSE.stroke }}
+                      {...CHART_ANIMATION}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -243,14 +384,27 @@ export default function OverviewPage() {
           <ChartCard title={t('dashboard.ordersStatus')} subtitle={t('dashboard.pipeline')}>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4}>
+                <PieChart margin={CHART_MARGIN}>
+                  <Pie
+                    data={statusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={62}
+                    outerRadius={92}
+                    paddingAngle={4}
+                    cornerRadius={6}
+                    stroke="#fff"
+                    strokeWidth={3}
+                    {...CHART_ANIMATION}
+                  >
                     {statusData.map((entry) => (
                       <Cell key={entry.name} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-                  <Legend />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend iconType="circle" wrapperStyle={LEGEND_STYLE} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -261,14 +415,15 @@ export default function OverviewPage() {
           <ChartCard title={t('dashboard.salesType')} subtitle={t('dashboard.volume')}>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                <BarChart data={salesChart} margin={CHART_MARGIN} barCategoryGap="28%">
+                  <ModernBarGradients data={salesChart} idPrefix="salesBar" />
+                  <CartesianGrid {...CHART_GRID} vertical={false} />
+                  <XAxis dataKey="name" {...chartXAxisProps()} />
+                  <YAxis {...chartYAxisProps()} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={44} {...CHART_ANIMATION}>
                     {salesChart.map((entry) => (
-                      <Cell key={entry.name} fill={entry.fill} />
+                      <Cell key={entry.name} fill={barGradientUrl(entry.fill, 'salesBar')} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -277,21 +432,12 @@ export default function OverviewPage() {
           </ChartCard>
 
           <ChartCard title={t('dashboard.expensesCat')} subtitle={t('dashboard.spend')}>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={expenseChart} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${v / 1000}k`} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} />
-                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v) => formatCurrency(v)} />
-                  <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
-                    {expenseChart.map((entry) => (
-                      <Cell key={entry.name} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <VerticalCategoryBarChart
+              data={expenseChart}
+              valueKey="amount"
+              formatXTick={formatCurrencyAxis}
+              formatTooltip={(v) => formatCurrency(v)}
+            />
           </ChartCard>
         </section>
 
@@ -324,28 +470,70 @@ export default function OverviewPage() {
             </Link>
           </div>
 
-          <div className="panel p-5 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-ink">{t('dashboard.monthlyProfit')}</h3>
-                <p className="text-sm text-ink-muted">{t('dashboard.profitHint')}</p>
+          <KpiChartCard
+            className="lg:col-span-2"
+            title={t('dashboard.monthlyProfit')}
+            value={formatCurrency(dashboardData?.monthly?.profit ?? 0)}
+            subtitle={t('dashboard.profitHint')}
+            icon={TrendingUp}
+            accent={(dashboardData?.monthly?.profit ?? 0) >= 0 ? 'success' : 'danger'}
+          >
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-primary-soft/60 bg-background/80 px-3 py-2.5">
+                <p className="text-xs font-medium text-ink-muted">{t('dashboard.monthlyIncome')}</p>
+                <p className="mt-0.5 text-base font-bold text-success">
+                  {formatCurrency(dashboardData?.monthly?.income ?? 0)}
+                </p>
               </div>
-              <TrendingUp className="text-success" size={22} />
+              <div className="rounded-xl border border-primary-soft/60 bg-background/80 px-3 py-2.5">
+                <p className="text-xs font-medium text-ink-muted">{t('dashboard.monthlyExpense')}</p>
+                <p className="mt-0.5 text-base font-bold text-danger">
+                  {formatCurrency(dashboardData?.monthly?.expenses ?? 0)}
+                </p>
+              </div>
             </div>
-            <p className="text-4xl font-extrabold tracking-tight text-ink">
-              {formatCurrency(dashboardData?.monthly?.profit ?? 0)}
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div className="rounded-lg bg-background px-4 py-3">
-                <p className="text-xs text-ink-muted">{t('dashboard.monthlyIncome')}</p>
-                <p className="text-lg font-bold text-success">{formatCurrency(dashboardData?.monthly?.income ?? 0)}</p>
-              </div>
-              <div className="rounded-lg bg-background px-4 py-3">
-                <p className="text-xs text-ink-muted">{t('dashboard.monthlyExpense')}</p>
-                <p className="text-lg font-bold text-danger">{formatCurrency(dashboardData?.monthly?.expenses ?? 0)}</p>
-              </div>
+            <p className="mb-2 text-xs font-medium text-ink-muted">{t('dashboard.profitTrend')}</p>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={currentMonthDailyData} margin={{ ...CHART_MARGIN, left: 0, right: 4 }}>
+                  <ChartAreaGradients />
+                  <CartesianGrid {...CHART_GRID} vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    {...chartXAxisProps({
+                      interval: currentMonthDailyData.length > 16 ? 1 : 0,
+                      tick: { fill: '#64748b', fontSize: 10, fontWeight: 500 },
+                    })}
+                  />
+                  <YAxis {...chartYAxisProps({ width: 40, tickFormatter: formatCurrencyAxis })} />
+                  <Tooltip content={<ChartTooltip valueFormatter={(v) => formatCurrency(v)} />} />
+                  <Legend iconType="circle" wrapperStyle={{ ...LEGEND_STYLE, paddingTop: 4, fontSize: 11 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    stroke="url(#chartIncomeStroke)"
+                    fill={`url(#${AREA_INCOME.fillId})`}
+                    strokeWidth={2}
+                    name={t('dashboard.income')}
+                    dot={false}
+                    activeDot={{ r: 4, stroke: '#fff', strokeWidth: 2, fill: AREA_INCOME.stroke }}
+                    {...CHART_ANIMATION}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="expense"
+                    stroke="url(#chartExpenseStroke)"
+                    fill={`url(#${AREA_EXPENSE.fillId})`}
+                    strokeWidth={2}
+                    name={t('dashboard.expense')}
+                    dot={false}
+                    activeDot={{ r: 4, stroke: '#fff', strokeWidth: 2, fill: AREA_EXPENSE.stroke }}
+                    {...CHART_ANIMATION}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          </div>
+          </KpiChartCard>
         </section>
 
         <section>
