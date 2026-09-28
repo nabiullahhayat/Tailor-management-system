@@ -58,13 +58,20 @@ export function getOrdersWithDebt(customerOrders) {
     .sort((a, b) => new Date(a.order.orderDate || 0) - new Date(b.order.orderDate || 0));
 }
 
-export function allocateOrderDebtPayment(customerOrders, paymentAmount) {
+export function allocateOrderDebtPayment(customerOrders, paymentAmount, priorityOrderId = null) {
   const amount = Math.max(0, parseFloat(paymentAmount) || 0);
   if (amount === 0) return { allocations: [], applied: 0, unapplied: 0 };
 
+  let withDebt = getOrdersWithDebt(customerOrders);
+  if (priorityOrderId) {
+    const priority = withDebt.find((row) => row.order.id === priorityOrderId);
+    const rest = withDebt.filter((row) => row.order.id !== priorityOrderId);
+    withDebt = priority ? [priority, ...rest] : withDebt;
+  }
+
   let left = amount;
   const allocations = [];
-  for (const { order, remaining } of getOrdersWithDebt(customerOrders)) {
+  for (const { order, remaining } of withDebt) {
     if (left <= 0) break;
     const apply = Math.min(left, remaining);
     const newPaid = Number(order.paidAmount || 0) + apply;
@@ -165,9 +172,14 @@ export async function applyOrderCustomerCashPayment(
   customers,
   applyOrderPayment,
   adjustWallet,
+  priorityOrderId = null,
 ) {
   const customerOrders = getOrdersForCustomer(customer.id, customer.name, orders, customers);
-  const { allocations, unapplied } = allocateOrderDebtPayment(customerOrders, paymentAmount);
+  const { allocations, unapplied } = allocateOrderDebtPayment(
+    customerOrders,
+    paymentAmount,
+    priorityOrderId,
+  );
 
   for (const { order, newPaidAmount, markPaid } of allocations) {
     await applyOrderPayment(order.id, {

@@ -46,6 +46,10 @@ export function StockProvider({ children }) {
       const newFabric = await stockService.fabric.create({
         name: data.name,
         pricePerMeter: parseFloat(data.pricePerMeter),
+        purchasePrice:
+          data.purchasePrice !== undefined && data.purchasePrice !== ''
+            ? parseFloat(data.purchasePrice)
+            : undefined,
         stock: parseFloat(data.stock || 0),
         supplier: data.supplier || '',
         supplierContact: data.supplierContact || '',
@@ -68,6 +72,10 @@ export function StockProvider({ children }) {
       const newMachinery = await stockService.machinery.create({
         name: data.name,
         unitPrice: parseFloat(data.unitPrice),
+        purchasePrice:
+          data.purchasePrice !== undefined && data.purchasePrice !== ''
+            ? parseFloat(data.purchasePrice)
+            : undefined,
         stock: parseFloat(data.stock || 0),
         supplier: data.supplier || '',
         supplierContact: data.supplierContact || '',
@@ -89,13 +97,13 @@ export function StockProvider({ children }) {
   const addFabricStock = useCallback(async (entry) => {
     try {
       if (entry.fabricId) {
-        await stockService.fabric.purchaseStock(entry);
-        setFabrics(prev => prev.map(f => (
-          f.id === entry.fabricId
-            ? { ...f, stock: (parseFloat(f.stock) || 0) + Number(entry.quantity) }
-            : f
-        )));
-        return entry;
+        const result = await stockService.fabric.purchaseStock(entry);
+        try {
+          await fetchStock();
+        } catch (fetchErr) {
+          console.error('Stock refresh after purchase:', fetchErr);
+        }
+        return result;
       }
 
       const fabricData = {
@@ -115,19 +123,19 @@ export function StockProvider({ children }) {
       console.error('Error adding fabric stock:', err);
       throw err;
     }
-  }, []);
+  }, [fetchStock]);
 
   /* ── Add machinery stock ────────────────────────────────── */
   const addMachineryStock = useCallback(async (entry) => {
     try {
       if (entry.machineryId) {
-        await stockService.machinery.purchaseStock(entry);
-        setMachinery(prev => prev.map(m => (
-          m.id === entry.machineryId
-            ? { ...m, stock: (parseFloat(m.stock) || 0) + Number(entry.quantity) }
-            : m
-        )));
-        return entry;
+        const result = await stockService.machinery.purchaseStock(entry);
+        try {
+          await fetchStock();
+        } catch (fetchErr) {
+          console.error('Stock refresh after purchase:', fetchErr);
+        }
+        return result;
       }
 
       const machineryData = {
@@ -147,7 +155,7 @@ export function StockProvider({ children }) {
       console.error('Error adding machinery stock:', err);
       throw err;
     }
-  }, []);
+  }, [fetchStock]);
 
   /* ── Update fabric ──────────────────────────────────────── */
   const updateFabric = useCallback(async (id, updates) => {

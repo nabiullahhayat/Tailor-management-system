@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal.jsx';
 import Input from '../ui/Input.jsx';
+import SolarDatePicker from '../ui/SolarDatePicker.jsx';
 import Button from '../ui/Button.jsx';
 import { notify } from '../../utils/toast.js';
 import { getLineItemAmount, parseOrderLineItems } from '../../utils/orderDisplay.js';
-import { getTodaySolar, normalizeSolarDateString } from '../../utils/solarDate.js';
+import {
+  coerceDeliveryDateForState,
+  getTodaySolar,
+  isSolarDateBefore,
+  normalizeSolarDateString,
+} from '../../utils/solarDate.js';
 
 export default function EditOrderModal({ open, order, onClose, onSave }) {
   const { t } = useTranslation();
@@ -19,7 +25,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
 
   useEffect(() => {
     if (!order) return;
-    setDeliveryDate(order.deliveryDate?.split('T')[0] || order.deliveryDate || '');
+    setDeliveryDate(coerceDeliveryDateForState(order.deliveryDate));
     setPricePerOne(String(order.pricePerOne ?? ''));
     setQuantity(String(order.quantity ?? '1'));
     setColor(order.color || '');
@@ -37,15 +43,19 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
 
   const handleSave = async () => {
     if (!deliveryDate.trim()) {
-      notify.warning('Delivery date required', 'Enter a delivery date.');
+      notify.warning(t('toasts.deliveryRequired'), t('toasts.deliveryRequiredDesc'));
+      return;
+    }
+    if (isSolarDateBefore(deliveryDate, getTodaySolar())) {
+      notify.warning(t('newOrder.deliveryMinToday'), t('newOrder.deliveryMinToday'));
       return;
     }
     if (!pricePerOne || Number(pricePerOne) <= 0) {
-      notify.warning('Invalid price', 'Enter a valid price per item.');
+      notify.warning(t('toasts.invalidPrice'), t('toasts.invalidPriceDesc'));
       return;
     }
     if (!quantity || Number(quantity) <= 0) {
-      notify.warning('Invalid quantity', 'Enter a valid quantity.');
+      notify.warning(t('toasts.invalidQuantity'), t('toasts.invalidQuantityDesc'));
       return;
     }
     setSaving(true);
@@ -59,10 +69,10 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
         notes,
         customerFabricMeters,
       });
-      notify.success('Order updated', order.tokenNumber);
+      notify.success(t('toasts.orderUpdated'), order.tokenNumber);
       onClose();
     } catch (err) {
-      notify.error('Update failed', err.message || 'Could not update order.');
+      notify.error(t('toasts.updateFailed'), err.message || t('toasts.couldNotUpdateOrder'));
     } finally {
       setSaving(false);
     }
@@ -92,9 +102,9 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
                   <li key={line.orderTypeId || i} className="flex justify-between gap-2">
                     <span>
                       {line.orderType}
-                      {qty > 1 ? ` (${qty} × ₹${unit.toLocaleString()})` : ''}
+                      {qty > 1 ? ` (${qty} × ؋${unit.toLocaleString()})` : ''}
                     </span>
-                    <span className="font-semibold">₹{getLineItemAmount(line).toLocaleString()}</span>
+                    <span className="font-semibold">؋{getLineItemAmount(line).toLocaleString()}</span>
                   </li>
                 );
               })}
@@ -107,11 +117,12 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
           value={customerFabricMeters}
           onChange={(e) => setCustomerFabricMeters(e.target.value)}
         />
-        <Input
+        <SolarDatePicker
           label={t('newOrder.delivery')}
           value={deliveryDate}
-          onChange={(e) => setDeliveryDate(e.target.value)}
+          onChange={setDeliveryDate}
           placeholder={getTodaySolar()}
+          minDate={getTodaySolar()}
         />
         <Input label={t('common.color')} value={color} onChange={(e) => setColor(e.target.value)} />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -119,7 +130,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
           <Input label={t('common.quantity')} type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
         </div>
         <div className="rounded-xl bg-emerald-50 px-4 py-2 text-sm">
-          {t('modals.totalPrefix')}: <strong>₹{totalAmount.toLocaleString()}</strong>
+          {t('modals.totalPrefix')}: <strong>؋{totalAmount.toLocaleString()}</strong>
           {totalAmount !== Number(order.totalAmount || 0) && (
             <span className="ml-2 text-xs text-ink-muted">{t('modals.was', { amount: Number(order.totalAmount || 0).toLocaleString() })}</span>
           )}

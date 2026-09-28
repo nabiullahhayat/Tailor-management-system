@@ -3,10 +3,9 @@ import { Printer } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
+import { formatCurrency } from '../../utils/currency.js';
 
-function formatMoney(n) {
-  return `₹${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-}
+const formatMoney = (n) => formatCurrency(n, { maximumFractionDigits: 2 });
 
 export default function SaleBillModal({ open, sale, shopName = 'Khayati', customerPhone, onClose }) {
   const { t } = useTranslation();

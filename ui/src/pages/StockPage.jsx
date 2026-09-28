@@ -8,6 +8,8 @@ import Modal from '../components/ui/Modal.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
 import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { notify } from '../utils/toast.js';
+import SolarDatePicker from '../components/ui/SolarDatePicker.jsx';
+import { getTodaySolar } from '../utils/solarDate.js';
 import { formatCurrency } from '../utils/chartData.js';
 import { useStock } from '../context/StockContext.jsx';
 import { getWarningQuantity, isStockAtOrBelowWarning } from '../utils/stockWarnings.js';
@@ -34,12 +36,21 @@ export default function StockPage() {
   const [form, setForm] = useState({});
 
   const openCreate = (category) => {
-    setForm({ name: '', price: '', stock: '', supplier: '', warningQuantity: '', quantity: '', purchasePrice: '' });
+    setForm({
+      name: '',
+      price: '',
+      stock: '',
+      supplier: '',
+      warningQuantity: '',
+      quantity: '',
+      purchasePrice: '',
+      date: new Date().toISOString().split('T')[0],
+    });
     setModal({ type: 'create', category });
   };
 
   const openPurchase = (category) => {
-    setForm({ itemId: '', quantity: '', purchasePrice: '', date: new Date().toISOString().split('T')[0] });
+    setForm({ itemId: '', quantity: '', purchasePrice: '', date: getTodaySolar() });
     setModal({ type: 'purchase', category });
   };
 
@@ -60,36 +71,73 @@ export default function StockPage() {
 
   const handleSave = async () => {
     if (modal.type === 'create') {
-      if (modal.category === 'fabric') {
-        await createFabricItem({
-          name: form.name,
-          pricePerMeter: form.price,
-          stock: form.stock,
-          supplier: form.supplier,
-          warningQuantity: form.warningQuantity,
-        });
-      } else {
-        await createMachineryItem({
-          name: form.name,
-          unitPrice: form.price,
-          stock: form.stock,
-          supplier: form.supplier,
-          warningQuantity: form.warningQuantity,
-        });
+      const stockQty = parseFloat(form.stock);
+      const sellPrice = parseFloat(form.price);
+      const buyPrice = parseFloat(form.purchasePrice || form.price);
+      if (Number.isFinite(stockQty) && stockQty > 0) {
+        if (!Number.isFinite(buyPrice) || buyPrice <= 0) {
+          notify.error(t('stockExtra.purchaseAmountRequired'));
+          return;
+        }
+      }
+      try {
+        if (modal.category === 'fabric') {
+          await createFabricItem({
+            name: form.name,
+            pricePerMeter: sellPrice,
+            purchasePrice: buyPrice,
+            stock: form.stock,
+            supplier: form.supplier,
+            warningQuantity: form.warningQuantity,
+          });
+        } else {
+          await createMachineryItem({
+            name: form.name,
+            unitPrice: sellPrice,
+            purchasePrice: buyPrice,
+            stock: form.stock,
+            supplier: form.supplier,
+            warningQuantity: form.warningQuantity,
+          });
+        }
+        if (Number.isFinite(stockQty) && stockQty > 0 && buyPrice > 0) {
+          notify.success(t('stockExtra.purchaseRecorded'));
+        } else {
+          notify.success(t('toasts.stockUpdated'));
+        }
+      } catch (err) {
+        notify.error(err.message || t('stockExtra.purchaseFailed'));
+        return;
       }
     } else if (modal.type === 'purchase') {
+      if (!form.itemId) {
+        notify.error(t('stockExtra.selectItem'));
+        return;
+      }
+      const qty = parseFloat(form.quantity);
+      const unit = parseFloat(form.purchasePrice);
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unit) || unit <= 0) {
+        notify.error(t('toasts.purchaseQtyPriceRequired'));
+        return;
+      }
       const entry = {
-        quantity: form.quantity,
-        purchasePrice: form.purchasePrice,
+        quantity: qty,
+        purchasePrice: unit,
         date: form.date,
-        totalCost: Number(form.quantity) * Number(form.purchasePrice),
+        totalCost: qty * unit,
       };
-      if (modal.category === 'fabric') {
-        const item = fabrics.find((f) => f.id === form.itemId);
-        await addFabricStock({ ...entry, fabricId: form.itemId, itemName: item?.name || 'Fabric' });
-      } else {
-        const item = machinery.find((m) => m.id === form.itemId);
-        await addMachineryStock({ ...entry, machineryId: form.itemId, itemName: item?.name || 'Machinery' });
+      try {
+        if (modal.category === 'fabric') {
+          const item = fabrics.find((f) => f.id === form.itemId);
+          await addFabricStock({ ...entry, fabricId: form.itemId, itemName: item?.name || 'Fabric' });
+        } else {
+          const item = machinery.find((m) => m.id === form.itemId);
+          await addMachineryStock({ ...entry, machineryId: form.itemId, itemName: item?.name || 'Machinery' });
+        }
+        notify.success(t('stockExtra.purchaseRecorded'));
+      } catch (err) {
+        notify.error(err.message || t('toasts.purchaseRecordFailed'));
+        return;
       }
     } else if (modal.type === 'edit') {
       if (modal.category === 'fabric') {
@@ -111,7 +159,9 @@ export default function StockPage() {
       }
     }
     setModal(null);
-    notify.success('Stock updated');
+    if (modal.type === 'edit') {
+      notify.success(t('toasts.stockUpdated'));
+    }
   };
 
   const stockActions = (category, item) => (
@@ -267,12 +317,26 @@ export default function StockPage() {
             )}
             <Input label={t('common.quantity')} type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} />
             <Input label={t('stock.purchasePrice')} type="number" value={form.purchasePrice} onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))} />
-            <Input label={t('common.date')} type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+            <SolarDatePicker
+              label={t('common.date')}
+              value={form.date}
+              onChange={(date) => setForm((p) => ({ ...p, date }))}
+              allowEmpty={false}
+            />
           </>
         ) : (
           <>
             <Input label={t('common.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
             <Input label={modal?.category === 'fabric' ? t('stock.priceMeter') : t('stock.unitPrice')} type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
+            {modal?.type === 'create' && (
+              <Input
+                label={t('stock.purchasePrice')}
+                type="number"
+                value={form.purchasePrice}
+                onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))}
+                placeholder={t('stockExtra.purchasePriceHint')}
+              />
+            )}
             <Input label={t('stock.stock')} type="number" value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))} />
             <Input
               label={modal?.category === 'fabric' ? t('stockExtra.warningMeters') : t('stockExtra.warningUnits')}
@@ -297,7 +361,7 @@ export default function StockPage() {
           if (deleteTarget.category === 'fabric') deleteFabric(deleteTarget.item.id);
           else deleteMachinery(deleteTarget.item.id);
           setDeleteTarget(null);
-          notify.success('Item deleted');
+          notify.success(t('toasts.itemDeleted'));
         }}
       />
     </PageShell>

@@ -23,12 +23,12 @@ export default function SaleDetailModal({ open, sale, onClose, onMarkPaid }) {
           {[
             [t('salesExtra.saleType'), t(`ledger.${sale.saleType}`, { defaultValue: sale.saleType })],
             [t('sales.product'), sale.productName],
-            [t('stock.unitPrice'), `₹${Number(sale.unitPrice || 0).toLocaleString()}`],
-            [t('common.total'), `₹${Number(sale.totalAmount || 0).toLocaleString()}`],
-            [t('common.paid'), `₹${Number(sale.paidAmount || 0).toLocaleString()}`],
+            [t('stock.unitPrice'), `؋${Number(sale.unitPrice || 0).toLocaleString()}`],
+            [t('common.total'), `؋${Number(sale.totalAmount || 0).toLocaleString()}`],
+            [t('common.paid'), `؋${Number(sale.paidAmount || 0).toLocaleString()}`],
             [
               t('salesExtra.creditRemaining'),
-              `₹${Math.max(0, Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0)).toLocaleString()}`,
+              `؋${Math.max(0, Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0)).toLocaleString()}`,
             ],
             [t('salesExtra.meters'), sale.meters ?? '—'],
             [t('common.quantity'), sale.quantity ?? '—'],

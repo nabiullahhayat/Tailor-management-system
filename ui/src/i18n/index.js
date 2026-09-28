@@ -11,7 +11,7 @@ i18n.use(initReactI18next).init({
     fa: { translation: fa },
   },
   lng: 'ps',
-  fallbackLng: 'en',
+  fallbackLng: 'ps',
   interpolation: { escapeValue: false },
   returnNull: false,
 });

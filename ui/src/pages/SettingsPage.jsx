@@ -50,15 +50,15 @@ export default function SettingsPage() {
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      notify.warning('Invalid file', 'Please choose an image (PNG, JPG, WebP, or GIF).');
+      notify.warning(t('toasts.invalidFile'), t('toasts.invalidFileDesc'));
       return;
     }
     setIconUploading(true);
     try {
       await uploadAppIcon(file);
-      notify.success('App icon updated', 'Shown in the sidebar and top bar (saved in public/icone).');
+      notify.success(t('toasts.appIconUpdated'), t('toasts.appIconUpdatedDesc'));
     } catch (err) {
-      notify.error('Upload failed', err.message || 'Could not save app icon.');
+      notify.error(t('toasts.uploadFailed'), err.message || t('toasts.couldNotSaveIcon'));
     } finally {
       setIconUploading(false);
     }
@@ -68,9 +68,9 @@ export default function SettingsPage() {
     setIconUploading(true);
     try {
       await removeAppIcon();
-      notify.success('App icon removed', 'Using default letter again.');
+      notify.success(t('toasts.appIconRemoved'), t('toasts.appIconRemovedDesc'));
     } catch (err) {
-      notify.error('Could not remove icon', err.message);
+      notify.error(t('toasts.couldNotRemoveIcon'), err.message);
     } finally {
       setIconUploading(false);
     }

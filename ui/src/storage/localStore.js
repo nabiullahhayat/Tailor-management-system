@@ -7,7 +7,16 @@ import AsyncStorage from './browserStorage.js';
 import { STORAGE_KEYS } from './storageKeys.js';
 import { DEFAULT_APP_SETTINGS, collectDemoRecordIds } from './mockData.js';
 import { applyOrderCustomerCashPayment } from '../utils/orderCustomerBalance.js';
+import { toLocalDateKey } from '../utils/orderDelivery.js';
+import {
+  formatSolarDisplay,
+  getSolarMonthKey,
+  getTodaySolar,
+  isSolarDateString,
+  normalizeSolarDateString,
+} from '../utils/solarDate.js';
 import { collectStockWarnings } from '../utils/stockWarnings.js';
+import { notifyDataChanged } from '../utils/dataSync.js';
 
 const COLLECTION_KEYS = [
   STORAGE_KEYS.customers,
@@ -27,6 +36,12 @@ const COLLECTION_KEYS = [
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+function coalesceSolarExpenseDate(date) {
+  if (!date) return getTodaySolar();
+  if (isSolarDateString(date)) return normalizeSolarDateString(date);
+  return formatSolarDisplay(date);
+}
+
 const parseMeasurements = (value) => {
   if (!value) return null;
   if (typeof value === 'object') return value;
@@ -44,17 +59,18 @@ const stringifyMeasurements = (value) => {
 };
 
 const isSameDay = (dateStr, refDate) => {
-  const d = new Date(dateStr);
-  return (
-    d.getFullYear() === refDate.getFullYear() &&
-    d.getMonth() === refDate.getMonth() &&
-    d.getDate() === refDate.getDate()
-  );
+  const a = toLocalDateKey(dateStr);
+  const b = toLocalDateKey(refDate);
+  return Boolean(a && b && a === b);
 };
 
 const isSameMonth = (dateStr, refDate) => {
-  const d = new Date(dateStr);
-  return d.getFullYear() === refDate.getFullYear() && d.getMonth() === refDate.getMonth();
+  const itemKey = getSolarMonthKey(dateStr);
+  const refKey = getSolarMonthKey(refDate);
+  if (itemKey && refKey) return itemKey === refKey;
+  const a = toLocalDateKey(dateStr);
+  const b = toLocalDateKey(refDate);
+  return Boolean(a && b && a.slice(0, 7) === b.slice(0, 7));
 };
 
 const sumAmounts = (items, dateField, amountField, filterFn) =>
@@ -363,6 +379,28 @@ export async function createOrder(orderData) {
 
   orders.unshift(order);
   await writeCollection(STORAGE_KEYS.orders, orders);
+
+  const appliedToDebt = parseFloat(orderData.bookingAppliedToDebt || 0);
+  const bookingCash = parseFloat(orderData.bookingCashReceived || 0);
+  let cashIncome = 0;
+  if (bookingCash > 0) {
+    cashIncome = Math.max(0, bookingCash - appliedToDebt);
+  } else {
+    const paid = parseFloat(orderData.paidAmount || 0);
+    if (paid > 0) cashIncome = paid;
+  }
+  if (cashIncome > 0) {
+    await recordIncomePayment({
+      source: 'Order Payment',
+      title: `Payment for ${tokenNumber} — ${order.customerName}`,
+      type: 'Customer Order Payment',
+      amount: cashIncome,
+      referenceId: order.id,
+      referenceType: 'order',
+      status: 'Completed',
+    });
+  }
+
   return order;
 }
 
@@ -407,6 +445,8 @@ async function removeFinancialRecordsForOrder(orderId) {
     (t) => !(t.referenceId === orderId && t.referenceType === 'order'),
   );
   await saveTransactions(nextTx);
+  notifyDataChanged('income');
+  notifyDataChanged('transactions');
 }
 
 export async function deleteOrder(id) {
@@ -715,6 +755,24 @@ export async function createFabric(fabricData) {
   };
   fabrics.unshift(fabric);
   await writeCollection(STORAGE_KEYS.fabrics, fabrics);
+
+  const stockQty = parseFloat(fabricData.stock || 0);
+  const unitCost = parseFloat(
+    fabricData.purchasePrice ?? fabricData.pricePerMeter ?? 0,
+  );
+  if (stockQty > 0 && unitCost > 0) {
+    await recordStockPurchaseExpense({
+      category: 'Fabric',
+      itemName: fabric.name,
+      quantity: stockQty,
+      unitPrice: unitCost,
+      referenceId: fabric.id,
+      supplier: fabricData.supplier,
+      descriptionPrefix: 'Initial stock',
+      required: true,
+    });
+  }
+
   return fabric;
 }
 
@@ -723,9 +781,15 @@ export async function updateFabric(id, fabricData) {
   const fabrics = await readCollection(STORAGE_KEYS.fabrics);
   const index = fabrics.findIndex((f) => f.id === id);
   if (index === -1) throw new Error(`Fabric not found with id: ${id}`);
-  const updated = { ...fabrics[index], ...fabricData, updatedAt: new Date().toISOString() };
+  const previous = fabrics[index];
+  const updated = { ...previous, ...fabricData, updatedAt: new Date().toISOString() };
   fabrics[index] = updated;
   await writeCollection(STORAGE_KEYS.fabrics, fabrics);
+  await syncStockItemFinancialRecords(id, {
+    name: updated.name,
+    category: 'Fabric',
+    stock: updated.stock,
+  }, previous);
   return updated;
 }
 
@@ -739,6 +803,11 @@ export async function adjustFabric(id, { quantity, transactionType, notes }) {
 export async function deleteFabric(id) {
   await initializeStore();
   const fabrics = await readCollection(STORAGE_KEYS.fabrics);
+  const fabric = fabrics.find((f) => f.id === id);
+  await removeStockItemFinancialRecords(id, {
+    name: fabric?.name,
+    category: 'Fabric',
+  });
   await writeCollection(STORAGE_KEYS.fabrics, fabrics.filter((f) => f.id !== id));
 }
 
@@ -766,6 +835,24 @@ export async function createMachinery(machineryData) {
   };
   machinery.unshift(item);
   await writeCollection(STORAGE_KEYS.machinery, machinery);
+
+  const stockQty = parseFloat(machineryData.stock || 0);
+  const unitCost = parseFloat(
+    machineryData.purchasePrice ?? machineryData.unitPrice ?? 0,
+  );
+  if (stockQty > 0 && unitCost > 0) {
+    await recordStockPurchaseExpense({
+      category: 'Machinery',
+      itemName: item.name,
+      quantity: stockQty,
+      unitPrice: unitCost,
+      referenceId: item.id,
+      supplier: machineryData.supplier,
+      descriptionPrefix: 'Initial stock',
+      required: true,
+    });
+  }
+
   return item;
 }
 
@@ -774,9 +861,15 @@ export async function updateMachinery(id, machineryData) {
   const machinery = await readCollection(STORAGE_KEYS.machinery);
   const index = machinery.findIndex((m) => m.id === id);
   if (index === -1) throw new Error(`Machinery not found with id: ${id}`);
-  const updated = { ...machinery[index], ...machineryData, updatedAt: new Date().toISOString() };
+  const previous = machinery[index];
+  const updated = { ...previous, ...machineryData, updatedAt: new Date().toISOString() };
   machinery[index] = updated;
   await writeCollection(STORAGE_KEYS.machinery, machinery);
+  await syncStockItemFinancialRecords(id, {
+    name: updated.name,
+    category: 'Machinery',
+    stock: updated.stock,
+  }, previous);
   return updated;
 }
 
@@ -790,6 +883,11 @@ export async function adjustMachinery(id, { quantity, transactionType, notes }) 
 export async function deleteMachinery(id) {
   await initializeStore();
   const machinery = await readCollection(STORAGE_KEYS.machinery);
+  const item = machinery.find((m) => m.id === id);
+  await removeStockItemFinancialRecords(id, {
+    name: item?.name,
+    category: 'Machinery',
+  });
   await writeCollection(STORAGE_KEYS.machinery, machinery.filter((m) => m.id !== id));
 }
 
@@ -813,7 +911,11 @@ export async function getStockStats() {
 
 export async function getExpenses() {
   await initializeStore();
-  return readCollection(STORAGE_KEYS.expenses);
+  const items = await readCollection(STORAGE_KEYS.expenses);
+  return items.map((e) => ({
+    ...e,
+    amount: Number(e.amount || 0),
+  }));
 }
 
 export async function saveExpenses(expenses) {
@@ -826,6 +928,7 @@ export async function addExpenseRecord(expense) {
   const newExpense = { ...expense, id: expense.id || generateId() };
   expenses.unshift(newExpense);
   await saveExpenses(expenses);
+  notifyDataChanged('expenses');
   return newExpense;
 }
 
@@ -859,7 +962,7 @@ export async function recordExpensePayment({
   const expenseAmount = parseFloat(amount);
   if (!expenseAmount || expenseAmount <= 0) return null;
 
-  const expenseDate = date || new Date().toISOString().split('T')[0];
+  const expenseDate = coalesceSolarExpenseDate(date);
   const typeLabel = type || EXPENSE_TYPE_MAP[category] || 'Other Expense';
 
   const expense = await addExpenseRecord({
@@ -870,6 +973,7 @@ export async function recordExpensePayment({
     date: expenseDate,
     description,
     fromStock: referenceType === 'stock',
+    stockItemId: referenceType === 'stock' ? referenceId : null,
   });
 
   const transactions = await getTransactions();
@@ -882,11 +986,13 @@ export async function recordExpensePayment({
     amount: expenseAmount,
     date: expenseDate,
     status,
-    referenceId: referenceId || expense.id,
+    expenseId: expense.id,
+    referenceId: referenceType === 'stock' ? referenceId : referenceId || expense.id,
     referenceType: referenceType || 'expense',
   };
   transactions.unshift(transaction);
   await saveTransactions(transactions);
+  notifyDataChanged('transactions');
 
   return { expense, transaction };
 }
@@ -904,6 +1010,64 @@ export async function addExpense(expense) {
   });
 }
 
+function expenseLinksTransaction(expenseId, tx) {
+  if (tx.expenseId === expenseId) return true;
+  if (tx.referenceType === 'expense' && tx.referenceId === expenseId) return true;
+  return false;
+}
+
+async function syncExpenseToDakhal(expense) {
+  if (!expense?.id) return;
+
+  const expenseDate = coalesceSolarExpenseDate(expense.date);
+  const typeLabel = EXPENSE_TYPE_MAP[expense.category] || 'Other Expense';
+  const title = expense.name;
+  const icon =
+    EXPENSE_ICON_MAP[expense.category] ||
+    EXPENSE_ICON_MAP[typeLabel] ||
+    'cash-outline';
+
+  const transactions = await getTransactions();
+  let linked = false;
+  const nextTx = transactions.map((t) => {
+    if (!expenseLinksTransaction(expense.id, t)) return t;
+    linked = true;
+    return {
+      ...t,
+      expenseId: expense.id,
+      icon,
+      title,
+      type: typeLabel,
+      category: 'expense',
+      amount: parseFloat(expense.amount) || 0,
+      date: expenseDate,
+      referenceId: expense.fromStock && expense.stockItemId ? expense.stockItemId : expense.id,
+      referenceType: expense.fromStock ? 'stock' : 'expense',
+    };
+  });
+
+  if (linked) {
+    await saveTransactions(nextTx);
+  } else {
+    nextTx.unshift({
+      id: generateId(),
+      icon,
+      title,
+      type: typeLabel,
+      category: 'expense',
+      amount: parseFloat(expense.amount) || 0,
+      date: expenseDate,
+      status: 'Paid',
+      expenseId: expense.id,
+      referenceId: expense.fromStock && expense.stockItemId ? expense.stockItemId : expense.id,
+      referenceType: expense.fromStock ? 'stock' : 'expense',
+    });
+    await saveTransactions(nextTx);
+  }
+
+  notifyDataChanged('transactions');
+}
+
 export async function updateExpense(id, data) {
   await initializeStore();
   const expenses = await getExpenses();
@@ -912,6 +1076,8 @@ export async function updateExpense(id, data) {
   const updated = { ...expenses[index], ...data };
   expenses[index] = updated;
   await saveExpenses(expenses);
+  await syncExpenseToDakhal(updated);
+  notifyDataChanged('expenses');
   return updated;
 }
 
@@ -919,46 +1085,239 @@ export async function deleteExpense(id) {
   await initializeStore();
   const expenses = await getExpenses();
   await saveExpenses(expenses.filter((e) => e.id !== id));
+  const transactions = await getTransactions();
+  await saveTransactions(
+    transactions.filter((t) => !expenseLinksTransaction(id, t)),
+  );
+  notifyDataChanged('expenses');
+  notifyDataChanged('transactions');
+}
+
+function expenseMatchesStockItem(expense, stockItemId, { name, category } = {}) {
+  if (expense.stockItemId === stockItemId) return true;
+  if (!expense.fromStock) return false;
+  if (category && expense.category !== category) return false;
+  if (name && expense.name === name) return true;
+  return false;
+}
+
+async function removeStockItemFinancialRecords(stockItemId, { name, category } = {}) {
+  await initializeStore();
+  const transactions = await getTransactions();
+  const removedExpenseIds = new Set();
+
+  const keptTx = transactions.filter((t) => {
+    if (t.referenceType === 'stock' && t.referenceId === stockItemId) {
+      if (t.expenseId) removedExpenseIds.add(t.expenseId);
+      return false;
+    }
+    return true;
+  });
+
+  const expenses = await readCollection(STORAGE_KEYS.expenses);
+  const keptExpenses = expenses.filter((e) => {
+    if (removedExpenseIds.has(e.id)) return false;
+    if (e.stockItemId === stockItemId) {
+      removedExpenseIds.add(e.id);
+      return false;
+    }
+    if (expenseMatchesStockItem(e, stockItemId, { name, category })) {
+      removedExpenseIds.add(e.id);
+      return false;
+    }
+    return true;
+  });
+
+  if (keptExpenses.length !== expenses.length) {
+    await saveExpenses(keptExpenses);
+    notifyDataChanged('expenses');
+  }
+  if (keptTx.length !== transactions.length) {
+    await saveTransactions(keptTx);
+    notifyDataChanged('transactions');
+  }
+}
+
+async function syncStockItemFinancialRecords(stockItemId, { name, category, stock }, previousItem) {
+  await initializeStore();
+  const expenses = await readCollection(STORAGE_KEYS.expenses);
+  const amountUpdates = new Map();
+  let expensesChanged = false;
+
+  const nextExpenses = expenses.map((e) => {
+    let next = e;
+    const linked =
+      e.stockItemId === stockItemId ||
+      expenseMatchesStockItem(e, stockItemId, {
+        name: previousItem?.name,
+        category,
+      });
+
+    if (!linked) return e;
+
+    if (!e.stockItemId) {
+      next = { ...next, stockItemId };
+      expensesChanged = true;
+    }
+
+    if (name && name !== e.name) {
+      next = { ...next, name };
+      expensesChanged = true;
+    }
+
+    if (category && category !== e.category) {
+      next = { ...next, category };
+      expensesChanged = true;
+    }
+
+    if (
+      stock !== undefined &&
+      previousItem &&
+      String(next.description || '').includes('Initial stock')
+    ) {
+      const oldStock = parseFloat(previousItem.stock || 0);
+      const newStock = parseFloat(stock);
+      if (oldStock > 0 && Number.isFinite(newStock) && newStock !== oldStock) {
+        const newAmount = Number(((next.amount || 0) * (newStock / oldStock)).toFixed(2));
+        next = { ...next, amount: newAmount };
+        amountUpdates.set(next.id, newAmount);
+        expensesChanged = true;
+      }
+    }
+
+    return next;
+  });
+
+  if (expensesChanged) {
+    await saveExpenses(nextExpenses);
+    notifyDataChanged('expenses');
+  }
+
+  const transactions = await getTransactions();
+  let txChanged = false;
+  const nextTx = transactions.map((t) => {
+    if (t.referenceType !== 'stock' || t.referenceId !== stockItemId) {
+      if (t.expenseId && amountUpdates.has(t.expenseId)) {
+        txChanged = true;
+        return { ...t, amount: amountUpdates.get(t.expenseId) };
+      }
+      return t;
+    }
+    txChanged = true;
+    const patch = { ...t };
+    if (name) patch.title = name;
+    if (t.expenseId && amountUpdates.has(t.expenseId)) {
+      patch.amount = amountUpdates.get(t.expenseId);
+    }
+    return patch;
+  });
+
+  if (txChanged) {
+    await saveTransactions(nextTx);
+    notifyDataChanged('transactions');
+  }
+}
+
+async function recordStockPurchaseExpense({
+  category,
+  itemName,
+  quantity,
+  unitPrice,
+  date,
+  description,
+  descriptionPrefix = 'Stock purchase',
+  referenceId,
+  supplier,
+  notes,
+  required = false,
+}) {
+  const qty = parseFloat(quantity);
+  const unit = parseFloat(unitPrice);
+  const amount = qty * unit;
+  if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unit) || unit <= 0) {
+    if (required) {
+      throw new Error('Enter quantity and purchase price so the expense amount is greater than zero.');
+    }
+    return null;
+  }
+  const expenseDate = coalesceSolarExpenseDate(date);
+  const desc =
+    description ||
+    `${descriptionPrefix}: ${qty} @ ؋${unit}${supplier ? ` from ${supplier}` : ''}${notes ? `. ${notes}` : ''}`;
+  const result = await recordExpensePayment({
+    category,
+    title: itemName || category,
+    type: category === 'Fabric' ? 'Fabric Purchase' : 'Machinery Purchase',
+    amount,
+    date: expenseDate,
+    description: desc,
+    referenceId,
+    referenceType: 'stock',
+  });
+  if (required && !result?.expense) {
+    throw new Error('Could not save expense for this stock purchase.');
+  }
+  return result;
 }
 
 export async function purchaseFabricStock(entry) {
+  await initializeStore();
   const { fabricId, itemName, supplier, quantity, purchasePrice, totalCost, date, notes } = entry;
+  const qty = parseFloat(quantity);
+  const unitPrice = parseFloat(purchasePrice);
+  const amount =
+    parseFloat(totalCost) ||
+    (Number.isFinite(qty) && Number.isFinite(unitPrice) ? qty * unitPrice : 0);
+  if (!amount || amount <= 0) {
+    throw new Error('Enter quantity and purchase price so the expense amount is greater than zero.');
+  }
+  const recorded = await recordStockPurchaseExpense({
+    category: 'Fabric',
+    itemName,
+    quantity: qty,
+    unitPrice,
+    date,
+    referenceId: fabricId,
+    supplier,
+    notes,
+    required: true,
+  });
   await adjustFabric(fabricId, {
-    quantity,
+    quantity: qty,
     transactionType: 'in',
     notes: notes || (supplier ? `Purchased from ${supplier}` : 'Stock purchase'),
   });
-  const amount = totalCost || Number(quantity) * Number(purchasePrice);
-  return recordExpensePayment({
-    category: 'Fabric',
-    title: itemName,
-    type: 'Fabric Purchase',
-    amount,
-    date,
-    description: `${quantity} @ ₹${purchasePrice}${supplier ? ` from ${supplier}` : ''}${notes ? `. ${notes}` : ''}`,
-    referenceId: fabricId,
-    referenceType: 'stock',
-  });
+  return recorded;
 }
 
 export async function purchaseMachineryStock(entry) {
+  await initializeStore();
   const { machineryId, itemName, supplier, quantity, purchasePrice, totalCost, date, notes } = entry;
+  const qty = parseFloat(quantity);
+  const unitPrice = parseFloat(purchasePrice);
+  const amount =
+    parseFloat(totalCost) ||
+    (Number.isFinite(qty) && Number.isFinite(unitPrice) ? qty * unitPrice : 0);
+  if (!amount || amount <= 0) {
+    throw new Error('Enter quantity and purchase price so the expense amount is greater than zero.');
+  }
+  const recorded = await recordStockPurchaseExpense({
+    category: 'Machinery',
+    itemName,
+    quantity: qty,
+    unitPrice,
+    date,
+    referenceId: machineryId,
+    supplier,
+    notes,
+    required: true,
+  });
   await adjustMachinery(machineryId, {
-    quantity,
+    quantity: qty,
     transactionType: 'in',
     notes: notes || (supplier ? `Purchased from ${supplier}` : 'Stock purchase'),
   });
-  const amount = totalCost || Number(quantity) * Number(purchasePrice);
-  return recordExpensePayment({
-    category: 'Machinery',
-    title: itemName,
-    type: 'Machinery Purchase',
-    amount,
-    date,
-    description: `${quantity} @ ₹${purchasePrice}${supplier ? ` from ${supplier}` : ''}${notes ? `. ${notes}` : ''}`,
-    referenceId: machineryId,
-    referenceType: 'stock',
-  });
+  return recorded;
 }
 
 // ─── Income ──────────────────────────────────────────────────────────────────
@@ -1008,7 +1367,7 @@ export async function recordIncomePayment({
   const paidAmount = parseFloat(amount);
   if (!paidAmount || paidAmount <= 0) return null;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodaySolar();
   const income = await addIncomeRecord({
     source,
     description: title,
@@ -1027,11 +1386,14 @@ export async function recordIncomePayment({
     amount: paidAmount,
     date: today,
     status,
+    incomeId: income.id,
     referenceId,
     referenceType,
   };
   transactions.unshift(transaction);
   await saveTransactions(transactions);
+  notifyDataChanged('income');
+  notifyDataChanged('transactions');
 
   return { income, transaction };
 }
@@ -1111,14 +1473,26 @@ export async function recordOrderPayment(id, { paymentAmount, paymentReceived = 
     customers.find((c) => c.name.toLowerCase() === (order.customerName || '').toLowerCase());
 
   if (customer) {
-    await applyOrderCustomerCashPayment(
+    const { addedToPrepaid } = await applyOrderCustomerCashPayment(
       customer,
       amount,
       orders,
       customers,
       async (orderId, data) => setOrderPaidAmount(orderId, data),
       async (customerId, delta) => adjustCustomerCreditBalance(customerId, delta),
+      id,
     );
+    if (addedToPrepaid > 0) {
+      await recordIncomePayment({
+        source: 'Order Payment',
+        title: `Payment from ${customer.name} (prepaid credit)`,
+        type: 'Customer Order Payment',
+        amount: addedToPrepaid,
+        referenceId: customer.id,
+        referenceType: 'customer',
+        status: 'Completed',
+      });
+    }
   } else {
     const previousPaid = parseFloat(order.paidAmount || 0);
     const total = parseFloat(order.totalAmount || 0);
@@ -1181,6 +1555,31 @@ export async function getTransactions() {
 
 export async function saveTransactions(transactions) {
   await writeCollection(STORAGE_KEYS.transactions, transactions);
+}
+
+export async function deleteTransaction(id) {
+  await initializeStore();
+  const transactions = await getTransactions();
+  const tx = transactions.find((t) => t.id === id);
+  if (!tx) return;
+
+  if (tx.expenseId) {
+    await deleteExpense(tx.expenseId);
+    notifyDataChanged('transactions');
+    return;
+  }
+
+  if (tx.incomeId) {
+    const income = await readCollection(STORAGE_KEYS.income);
+    await writeCollection(
+      STORAGE_KEYS.income,
+      income.filter((i) => i.id !== tx.incomeId),
+    );
+    notifyDataChanged('income');
+  }
+
+  await saveTransactions(transactions.filter((t) => t.id !== id));
+  notifyDataChanged('transactions');
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────

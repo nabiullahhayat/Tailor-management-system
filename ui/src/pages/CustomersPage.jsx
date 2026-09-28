@@ -22,6 +22,8 @@ import { useSales } from '../context/SaleContext.jsx';
 import { applyOrderCustomerCashPayment, buildOrderCustomerBalanceMap } from '../utils/orderCustomerBalance.js';
 import { orderService } from '../services/index.js';
 import { notify } from '../utils/toast.js';
+import { formatCurrency } from '../utils/currency.js';
+import { formatSolarDisplay } from '../utils/solarDate.js';
 import {
   applySalesCustomerCreditPayment,
   buildSalesCustomerBalanceMap,
@@ -89,7 +91,7 @@ export default function CustomersPage() {
     );
   }, [salesCustomers, query]);
 
-  const fmt = (n) => `₹${Number(n || 0).toLocaleString()}`;
+  const fmt = formatCurrency;
 
   const orderColumns = [
     { key: 'token', label: t('customers.token'), render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
@@ -114,7 +116,7 @@ export default function CustomersPage() {
         </span>
       ),
     },
-    { key: 'added', label: t('customers.added'), render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
+    { key: 'added', label: t('customers.added'), render: (r) => formatSolarDisplay(r.addedDate) },
     {
       key: 'actions',
       label: t('common.actions'),
@@ -160,7 +162,7 @@ export default function CustomersPage() {
         <span className="font-semibold text-success">{fmt(salesBalanceMap[r.id]?.prepaidCredit ?? r.creditBalance)}</span>
       ),
     },
-    { key: 'added', label: t('customers.added'), render: (r) => (r.addedDate ? new Date(r.addedDate).toLocaleDateString() : '—') },
+    { key: 'added', label: t('customers.added'), render: (r) => formatSolarDisplay(r.addedDate) },
     {
       key: 'actions',
       label: t('common.actions'),
@@ -290,9 +292,9 @@ export default function CustomersPage() {
           await refreshOrders();
           await refreshCustomers();
           notify.success(
-            'Customer updated',
+            t('toasts.customerUpdated'),
             payload.collectedAmount > 0 && payload.sendToDakhal
-              ? `₹${payload.collectedAmount.toLocaleString()} added to Dakhal`
+              ? t('toasts.dakhalAdded', { amount: payload.collectedAmount.toLocaleString() })
               : undefined,
           );
         }}
@@ -304,7 +306,7 @@ export default function CustomersPage() {
         onConfirm={() => {
           deleteCustomer(deleteTarget.id);
           setDeleteTarget(null);
-          notify.success('Customer deleted');
+          notify.success(t('toasts.customerDeleted'));
         }}
       />
 
@@ -333,9 +335,9 @@ export default function CustomersPage() {
         onSave={async (name, phone) => {
           try {
             await addSalesCustomer(name, phone);
-            notify.success('Sales customer added');
+            notify.success(t('toasts.salesCustomerAdded'));
           } catch (err) {
-            notify.error('Could not add customer', err.message);
+            notify.error(t('toasts.couldNotAddCustomer'), err.message);
           }
         }}
       />
@@ -363,11 +365,14 @@ export default function CustomersPage() {
             );
             const msg =
               addedToPrepaid > 0
-                ? `₹${applied.toLocaleString()} to debt, ₹${addedToPrepaid.toLocaleString()} saved as prepaid credit`
-                : `₹${applied.toLocaleString()} applied to remaining debt`;
-            notify.success('Payment recorded', msg);
+                ? t('toasts.paymentToDebt', {
+                    applied: applied.toLocaleString(),
+                    prepaid: addedToPrepaid.toLocaleString(),
+                  })
+                : t('toasts.paymentToDebtOnly', { applied: applied.toLocaleString() });
+            notify.success(t('toasts.paymentRecorded'), msg);
           } else {
-            notify.success('Sales customer updated');
+            notify.success(t('toasts.salesCustomerUpdated'));
           }
         }}
       />
@@ -378,7 +383,7 @@ export default function CustomersPage() {
         onConfirm={() => {
           deleteSalesCustomer(deleteSaleTarget.id);
           setDeleteSaleTarget(null);
-          notify.success('Sales customer deleted');
+          notify.success(t('toasts.salesCustomerDeleted'));
         }}
       />
     </>

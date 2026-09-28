@@ -73,12 +73,33 @@
     @apply rounded-xl border border-primary-soft/80 bg-surface shadow-sm;
   }
 
+  .chart-plot .recharts-cartesian-grid-horizontal line,
+  .chart-plot .recharts-cartesian-grid-vertical line {
+    stroke: #e2e8f0;
+    stroke-opacity: 0.55;
+  }
+
+  .chart-plot .recharts-text {
+    fill: #64748b;
+    font-weight: 500;
+  }
+
+  .chart-plot .recharts-legend-item-text {
+    color: #64748b !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+  }
+
+  .chart-plot .recharts-active-dot {
+    filter: drop-shadow(0 2px 6px rgb(0 102 255 / 0.35));
+  }
+
   .form-panel {
     @apply rounded-xl border border-primary-soft/80 bg-surface p-6 shadow-sm;
   }
 
   .data-table {
-    @apply w-full min-w-[720px] text-left text-sm;
+    @apply w-full min-w-[720px] table-fixed text-left text-sm;
   }
 
   .data-table-compact {
@@ -91,7 +112,7 @@
   }
 
   .data-table-compact th {
-    @apply px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-muted;
+    @apply px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   .data-table-compact tbody tr {
@@ -99,7 +120,7 @@
   }
 
   .data-table-compact td {
-    @apply px-2 py-2 align-middle text-ink-secondary;
+    @apply px-2 py-2 align-middle text-ink-secondary overflow-hidden text-ellipsis;
   }
 
   .data-table thead tr {
@@ -107,7 +128,7 @@
   }
 
   .data-table th {
-    @apply px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-muted;
+    @apply px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   .data-table tbody tr {
@@ -115,7 +136,7 @@
   }
 
   .data-table td {
-    @apply px-5 py-3.5 align-middle text-ink-secondary;
+    @apply px-5 py-3.5 align-middle text-ink-secondary overflow-hidden text-ellipsis;
   }
 
   .filter-chip {

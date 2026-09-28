@@ -8,6 +8,8 @@ import Input from '../ui/Input.jsx';
 import { CUSTOMER_OPTIONAL_MEASUREMENT_KEYS } from '../../context/CustomerContext.jsx';
 import { addsService } from '../../services/index.js';
 import { notify } from '../../utils/toast.js';
+import { formatSolarDisplay } from '../../utils/solarDate.js';
+import { formatCurrency } from '../../utils/currency.js';
 
 function buildEmptyMeasurements(fieldNames) {
   const base = {};
@@ -78,7 +80,7 @@ export default function CustomerDetailsModal({ open, customer, onClose }) {
           <div className="rounded-xl bg-background px-3 py-2">
             <p className="text-xs text-ink-muted">{t('customers.added')}</p>
             <p className="font-semibold">
-              {customer.addedDate ? new Date(customer.addedDate).toLocaleDateString() : '—'}
+              {formatSolarDisplay(customer.addedDate)}
             </p>
           </div>
         </div>
@@ -146,22 +148,22 @@ export function EditCustomerModal({
 
   const validate = useCallback(() => {
     const e = {};
-    if (!name.trim()) e.name = 'Name is required.';
-    if (!phone.trim()) e.phone = 'Phone is required.';
+    if (!name.trim()) e.name = t('validation.nameRequired');
+    if (!phone.trim()) e.phone = t('validation.phoneRequired');
     const nextRem = parseFloat(remainingDebt);
-    if (Number.isNaN(nextRem) || nextRem < 0) e.remaining = 'Enter a valid remaining amount.';
+    if (Number.isNaN(nextRem) || nextRem < 0) e.remaining = t('validation.validRemaining');
     else if (nextRem > initialDebt + 0.001) {
-      e.remaining = 'To record money received, enter a remaining amount lower than the current total.';
+      e.remaining = t('validation.remainingForPayment');
     }
     const nextCredit = parseFloat(creditBalance);
-    if (Number.isNaN(nextCredit) || nextCredit < 0) e.credit = 'Enter a valid credit balance.';
+    if (Number.isNaN(nextCredit) || nextCredit < 0) e.credit = t('validation.validCredit');
     fieldDefs.forEach(({ name: fieldName }) => {
       const val = String(measurements[fieldName] ?? '').trim();
-      if (!val) e[`m_${fieldName}`] = `${fieldName} is required.`;
+      if (!val) e[`m_${fieldName}`] = t('validation.fieldRequired', { field: fieldName });
     });
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [name, phone, measurements, fieldDefs, remainingDebt, creditBalance, initialDebt]);
+  }, [name, phone, measurements, fieldDefs, remainingDebt, creditBalance, initialDebt, t]);
 
   if (!customer) return null;
 
@@ -202,7 +204,7 @@ export function EditCustomerModal({
         {collectedAmount > 0 && (
           <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm">
             <p className="text-ink-secondary">
-              Lowering remaining records <strong>₹{collectedAmount.toLocaleString()}</strong> received from
+              Lowering remaining records <strong>؋{collectedAmount.toLocaleString()}</strong> received from
               the customer.
             </p>
             <label className="mt-2 flex items-center gap-2 font-medium text-ink">
@@ -242,7 +244,7 @@ export function EditCustomerModal({
         disabled={saving}
         onClick={async () => {
           if (!validate()) {
-            notify.warning('Fix errors', 'Check the form and try again.');
+            notify.warning(t('toasts.fixErrors'), t('toasts.fixErrorsDesc'));
             return;
           }
           setSaving(true);
@@ -261,7 +263,7 @@ export function EditCustomerModal({
             });
             onClose();
           } catch (err) {
-            notify.error('Could not save', err.message);
+            notify.error(t('toasts.couldNotSave'), err.message);
           } finally {
             setSaving(false);
           }
@@ -273,9 +275,7 @@ export function EditCustomerModal({
   );
 }
 
-function formatRupee(n) {
-  return `₹${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-}
+const fmtMoney = (n) => formatCurrency(n, { maximumFractionDigits: 2 });
 
 export function SalesCustomerDetailsModal({
   open,
@@ -304,7 +304,7 @@ export function SalesCustomerDetailsModal({
           <div className="rounded-xl bg-background px-3 py-2">
             <p className="text-xs text-ink-muted">{t('customers.added')}</p>
             <p className="font-semibold">
-              {customer.addedDate ? new Date(customer.addedDate).toLocaleDateString() : '—'}
+              {formatSolarDisplay(customer.addedDate)}
             </p>
           </div>
         </div>
@@ -314,21 +314,21 @@ export function SalesCustomerDetailsModal({
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-ink-muted">{t('customers.totalSales')}</p>
-              <p className="text-lg font-bold text-ink">{formatRupee(total)}</p>
+              <p className="text-lg font-bold text-ink">{fmtMoney(total)}</p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">{t('common.paid')}</p>
-              <p className="text-lg font-bold text-success">{formatRupee(paid)}</p>
+              <p className="text-lg font-bold text-success">{fmtMoney(paid)}</p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">{t('customers.remainingDebt')}</p>
               <p className={`text-lg font-bold ${credit > 0 ? 'text-danger' : 'text-success'}`}>
-                {formatRupee(credit)}
+                {fmtMoney(credit)}
               </p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">{t('customers.prepaidCredit')}</p>
-              <p className="text-lg font-bold text-success">{formatRupee(prepaid)}</p>
+              <p className="text-lg font-bold text-success">{fmtMoney(prepaid)}</p>
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-muted">
@@ -348,13 +348,13 @@ export function SalesCustomerDetailsModal({
                   <div key={sale.id} className="rounded-lg bg-background px-3 py-2 text-xs">
                     <div className="flex justify-between gap-2 font-semibold text-ink">
                       <span>{sale.invoiceNumber}</span>
-                      <span>{formatRupee(saleTotal)}</span>
+                      <span>{fmtMoney(saleTotal)}</span>
                     </div>
                     <p className="text-ink-muted">{sale.productName} · {t(`ledger.${sale.saleType}`, { defaultValue: sale.saleType })}</p>
                     <div className="mt-1 flex justify-between text-ink-muted">
-                      <span>{t('common.paid')} {formatRupee(salePaid)}</span>
+                      <span>{t('common.paid')} {fmtMoney(salePaid)}</span>
                       <span className={saleCredit > 0 ? 'font-semibold text-danger' : 'text-success'}>
-                        {t('common.remaining')} {formatRupee(saleCredit)}
+                        {t('common.remaining')} {fmtMoney(saleCredit)}
                       </span>
                     </div>
                   </div>
@@ -393,22 +393,19 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
 
   const validate = () => {
     const e = {};
-    if (!name.trim()) e.name = 'Name is required.';
-    if (!phone.trim()) e.phone = 'Phone is required.';
-    else if (!/^\d+$/.test(phone)) e.phone = 'Digits only.';
-    else if (phone.length !== 10) e.phone = 'Must be exactly 10 digits.';
-    else if (!phone.startsWith('07')) e.phone = 'Must start with 07.';
+    if (!name.trim()) e.name = t('validation.nameRequired');
+    if (!phone.trim()) e.phone = t('validation.phoneRequired');
+    else if (!/^\d+$/.test(phone)) e.phone = t('validation.digitsOnly');
+    else if (phone.length !== 10) e.phone = t('validation.phoneTenDigits');
+    else if (!phone.startsWith('07')) e.phone = t('validation.phoneStarts07');
     if (fieldDefs.length === 0) {
-      notify.warning(
-        'No measurement fields',
-        'Add customer measurement names in Adds → Customer Measurement first.',
-      );
+      notify.warning(t('toasts.noMeasurementsTitle'), t('toasts.noMeasurementsDesc'));
       return false;
     }
     fieldDefs.forEach(({ name: fieldName }) => {
       const val = String(measurements[fieldName] ?? '').trim();
-      if (!val) e[`m_${fieldName}`] = `${fieldName} is required.`;
-      else if (Number.isNaN(Number(val))) e[`m_${fieldName}`] = `${fieldName} must be a number.`;
+      if (!val) e[`m_${fieldName}`] = t('validation.fieldRequired', { field: fieldName });
+      else if (Number.isNaN(Number(val))) e[`m_${fieldName}`] = t('validation.fieldMustNumber', { field: fieldName });
     });
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -420,10 +417,10 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
     try {
       const payload = { ...measurements };
       const customer = await onSave(name.trim(), phone.trim(), payload);
-      notify.success('Customer saved', `Token: ${customer.tokenNumber}`);
+      notify.success(t('toasts.customerSaved'), t('toasts.customerSavedToken', { token: customer.tokenNumber }));
       onClose();
     } catch (err) {
-      notify.error('Could not save customer', err.message);
+      notify.error(t('toasts.couldNotSaveCustomer'), err.message);
     } finally {
       setSaving(false);
     }
@@ -440,16 +437,16 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             error={errors.phone}
-            placeholder="e.g. 0712345678"
+            placeholder={t('addsExtra.phonePlaceholder')}
           />
         </div>
         <div>
           <p className="mb-2 text-sm font-semibold text-ink">{t('modals.measurements')} *</p>
           {fieldDefs.length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-ink-secondary">
-              No measurement fields yet.{' '}
+              {t('modals.noMeasurementsYet')}{' '}
               <Link to="/adds" className="font-semibold text-navy underline" onClick={onClose}>
-                Open Adds → Customer Measurement
+                {t('modals.openAddsMeasurement')}
               </Link>
             </div>
           ) : (
@@ -502,7 +499,7 @@ export function AddSalesCustomerModal({ open, onClose, onSave }) {
 
   const handleSave = async () => {
     const e = {};
-    if (!name.trim()) e.name = 'Name is required.';
+    if (!name.trim()) e.name = t('validation.nameRequired');
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     await onSave(name.trim(), phone.trim());
@@ -556,7 +553,7 @@ export function EditSalesCustomerModal({
 
   const handleSave = async () => {
     if (payNow <= 0 && !name.trim()) {
-      setPayError('Enter a payment or update name/phone.');
+      setPayError(t('validation.enterPaymentOrUpdate'));
       return;
     }
     setSaving(true);
@@ -564,7 +561,7 @@ export function EditSalesCustomerModal({
       await onSave(customer.id, name, phone, payNow);
       onClose();
     } catch (err) {
-      notify.error('Could not save', err.message);
+      notify.error(t('toasts.couldNotSave'), err.message);
     } finally {
       setSaving(false);
     }
@@ -581,22 +578,22 @@ export function EditSalesCustomerModal({
           <div className="rounded-lg bg-surface px-3 py-2">
             <p className="text-xs text-ink-muted">{t('modals.remainingDebt')}</p>
             <p className={`text-lg font-bold ${debt > 0 ? 'text-danger' : 'text-success'}`}>
-              {formatRupee(debt)}
+              {fmtMoney(debt)}
             </p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
             <p className="text-xs text-ink-muted">{t('modals.prepaidNow')}</p>
-            <p className="text-lg font-bold text-success">{formatRupee(prepaid)}</p>
+            <p className="text-lg font-bold text-success">{fmtMoney(prepaid)}</p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
             <p className="text-xs text-ink-muted">{t('modals.afterDebt')}</p>
             <p className={`text-lg font-bold ${newDebt > 0 ? 'text-danger' : 'text-success'}`}>
-              {formatRupee(newDebt)}
+              {fmtMoney(newDebt)}
             </p>
           </div>
           <div className="rounded-lg bg-surface px-3 py-2">
             <p className="text-xs text-ink-muted">{t('modals.afterPrepaid')}</p>
-            <p className="text-lg font-bold text-success">{formatRupee(newPrepaid)}</p>
+            <p className="text-lg font-bold text-success">{fmtMoney(newPrepaid)}</p>
           </div>
         </div>
         <Input

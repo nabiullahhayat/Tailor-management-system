@@ -85,14 +85,14 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
   const validate = () => {
     const e = {};
-    if (!salesCustomerId && !customerName.trim()) e.customer = 'Customer is required.';
+    if (!salesCustomerId && !customerName.trim()) e.customer = t('newOrder.customerRequired');
     if (!itemId) e.item = `Please select a ${itemLabel.toLowerCase()}.`;
-    if (!qty || Number(qty) <= 0) e.qty = 'Enter valid quantity.';
+    if (!qty || Number(qty) <= 0) e.qty = t('validation.validQuantity');
     else if (selectedItem && Number(qty) > getStock(selectedItem)) {
       e.qty = `Only ${getStock(selectedItem)} available in stock.`;
     }
-    if (!price || Number(price) <= 0) e.price = 'Enter valid price.';
-    if (cashPaid !== '' && Number.isNaN(Number(cashPaid))) e.cashPaid = 'Enter a valid amount.';
+    if (!price || Number(price) <= 0) e.price = t('validation.validPrice');
+    if (cashPaid !== '' && Number.isNaN(Number(cashPaid))) e.cashPaid = t('validation.validAmount');
     const cash = Math.max(0, parseFloat(cashPaid) || 0);
     const dueAfterCredit = checkoutCustomer
       ? Math.max(0, total - Math.min(Number(checkoutCustomer.creditBalance || 0), total))
@@ -185,9 +185,9 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
       resetForm();
       setLastSale(finalSale);
       setBillOpen(true);
-      notify.success('Sale recorded', `Bill ${finalSale.invoiceNumber} generated`);
+      notify.success(t('toasts.saleRecorded'), t('toasts.saleBillGenerated', { invoice: finalSale.invoiceNumber }));
     } catch (err) {
-      notify.error('Could not save sale', err.message);
+      notify.error(t('toasts.couldNotSaveSale'), err.message);
     }
   };
 
@@ -198,23 +198,23 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
     { label: t('common.customer'), value: resolveCustomerName() },
     { label: itemLabel, value: selectedItem?.name || '—' },
     { label: qtyLabel, value: qty },
-    { label: t('salesExtra.pricePer', { unit: priceField === 'meter' ? t('salesExtra.meters') : t('stockExtra.units') }), value: `₹${Number(price || 0).toLocaleString()}` },
-    { label: t('salesExtra.totalAmount'), value: `₹${total.toLocaleString()}`, highlight: true },
+    { label: t('salesExtra.pricePer', { unit: priceField === 'meter' ? t('salesExtra.meters') : t('stockExtra.units') }), value: `؋${Number(price || 0).toLocaleString()}` },
+    { label: t('salesExtra.totalAmount'), value: `؋${total.toLocaleString()}`, highlight: true },
     ...(checkoutPreview?.walletUsed > 0
-      ? [{ label: t('salesExtra.prepaidApplied'), value: `₹${checkoutPreview.walletUsed.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.prepaidApplied'), value: `؋${checkoutPreview.walletUsed.toLocaleString()}` }]
       : []),
     ...(checkoutPreview?.amountDueAfterCredit != null && checkoutPreview.walletUsed > 0
-      ? [{ label: t('salesExtra.dueAfter'), value: `₹${checkoutPreview.amountDueAfterCredit.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.dueAfter'), value: `؋${checkoutPreview.amountDueAfterCredit.toLocaleString()}` }]
       : []),
-    { label: t('salesExtra.cashReceived'), value: `₹${Math.max(0, parseFloat(cashPaid) || 0).toLocaleString()}` },
-    { label: t('salesExtra.totalPaid'), value: `₹${salePaidDisplay.toLocaleString()}` },
+    { label: t('salesExtra.cashReceived'), value: `؋${Math.max(0, parseFloat(cashPaid) || 0).toLocaleString()}` },
+    { label: t('salesExtra.totalPaid'), value: `؋${salePaidDisplay.toLocaleString()}` },
     {
       label: t('salesExtra.remainingSale'),
-      value: `₹${saleRemainingDisplay.toLocaleString()}`,
+      value: `؋${saleRemainingDisplay.toLocaleString()}`,
       highlight: saleRemainingDisplay > 0,
     },
     ...(checkoutPreview?.surplusToPrepaid > 0
-      ? [{ label: t('salesExtra.addedPrepaid'), value: `₹${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
+      ? [{ label: t('salesExtra.addedPrepaid'), value: `؋${checkoutPreview.surplusToPrepaid.toLocaleString()}` }]
       : []),
     { label: t('salesExtra.paymentStatus'), value: t(`status.${checkoutPreview?.paymentStatus || 'Pending'}`) },
   ];
@@ -272,12 +272,12 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                   <div>
                     <p className="text-xs text-ink-muted">{t('salesExtra.outstanding')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
-                      ₹{outstandingDebt.toLocaleString()}
+                      ؋{outstandingDebt.toLocaleString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-ink-muted">{t('customers.prepaidCredit')}</p>
-                    <p className="text-base font-bold text-success">₹{prepaidAvailable.toLocaleString()}</p>
+                    <p className="text-base font-bold text-success">؋{prepaidAvailable.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -370,22 +370,22 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
               <div className="my-4 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50/80 px-3 py-3 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.total')}</p>
-                  <p className="text-base font-extrabold text-ink">₹{total.toLocaleString()}</p>
+                  <p className="text-base font-extrabold text-ink">؋{total.toLocaleString()}</p>
                 </div>
                 {checkoutPreview?.walletUsed > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('sales.creditUsed')}</p>
-                    <p className="text-base font-bold text-accent">₹{checkoutPreview.walletUsed.toLocaleString()}</p>
+                    <p className="text-base font-bold text-accent">؋{checkoutPreview.walletUsed.toLocaleString()}</p>
                   </div>
                 )}
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.paid')}</p>
-                  <p className="text-base font-bold text-success">₹{salePaidDisplay.toLocaleString()}</p>
+                  <p className="text-base font-bold text-success">؋{salePaidDisplay.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.remaining')}</p>
                   <p className={`text-base font-bold ${saleRemainingDisplay > 0 ? 'text-danger' : 'text-success'}`}>
-                    ₹{saleRemainingDisplay.toLocaleString()}
+                    ؋{saleRemainingDisplay.toLocaleString()}
                   </p>
                 </div>
               </div>

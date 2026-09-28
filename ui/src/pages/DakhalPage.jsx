@@ -12,14 +12,31 @@ import {
 import PageShell from '../components/desktop/PageShell.jsx';
 import KpiCard from '../components/desktop/KpiCard.jsx';
 import ChartCard from '../components/desktop/ChartCard.jsx';
+import ChartAreaGradients from '../components/charts/ChartAreaGradients.jsx';
+import ChartTooltip from '../components/charts/ChartTooltip.jsx';
+import {
+  CHART_ANIMATION,
+  CHART_GRID,
+  CHART_MARGIN,
+  AREA_EXPENSE,
+  AREA_INCOME,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import SearchInput from '../components/ui/SearchInput.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import TableRowActions from '../components/ui/TableRowActions.jsx';
 import { transactionService } from '../services/index.js';
-import { formatCurrency, getDailyIncomeTrend } from '../utils/chartData.js';
+import { formatCurrency, formatCurrencyAxis, getDailyIncomeTrend } from '../utils/chartData.js';
+import { formatSolarDisplay } from '../utils/solarDate.js';
+import { notify } from '../utils/toast.js';
+import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
+import { DATA_CHANGED_EVENT } from '../utils/dataSync.js';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+
+const DAKHAL_REFRESH_COLLECTIONS = new Set(['transactions', 'expenses', 'income']);
 
 const CATEGORY_FILTERS = ['All', 'Income', 'Expense'];
 const TYPE_FILTERS = ['All Types', 'Order', 'Fabric', 'Machinery', 'Other'];
@@ -33,20 +50,38 @@ function getTransactionGroup(tx) {
 }
 
 export default function DakhalPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All Types');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = useCallback(async () => {
     const data = await transactionService.getAll();
     setTransactions(data);
+    setSelected((prev) => {
+      if (!prev) return null;
+      return data.find((t) => t.id === prev.id) ?? null;
+    });
   }, []);
 
   useEffect(() => {
     load();
+    const timer = window.setInterval(load, 1000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  useEffect(() => {
+    const onDataChanged = (event) => {
+      const collection = event.detail?.collection;
+      if (!collection || DAKHAL_REFRESH_COLLECTIONS.has(collection)) {
+        load();
+      }
+    };
+    window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
   }, [load]);
 
   const summary = useMemo(() => {
@@ -55,10 +90,7 @@ export default function DakhalPage() {
     return { income, expense, profit: income - expense };
   }, [transactions]);
 
-  const trendData = useMemo(
-    () => getDailyIncomeTrend(transactions, 14, i18n.language === 'fa' ? 'fa-AF' : 'ps-AF'),
-    [transactions, i18n.language],
-  );
+  const trendData = useMemo(() => getDailyIncomeTrend(transactions, 14), [transactions]);
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -79,7 +111,7 @@ export default function DakhalPage() {
   const columns = [
     { key: 'title', label: t('dakhal.description'), render: (r) => <span className="font-medium text-ink">{r.title}</span> },
     { key: 'type', label: t('common.type'), render: (r) => t(`ledger.${r.type}`, { defaultValue: r.type }) },
-    { key: 'date', label: t('common.date'), render: (r) => r.date },
+    { key: 'date', label: t('common.date'), render: (r) => formatSolarDisplay(r.date) },
     {
       key: 'amount',
       label: t('common.amount'),
@@ -94,7 +126,12 @@ export default function DakhalPage() {
       key: 'actions',
       label: t('common.actions'),
       className: 'w-28',
-      render: (r) => <TableRowActions onView={() => setSelected(r)} />,
+      render: (r) => (
+        <TableRowActions
+          onView={() => setSelected(r)}
+          onDelete={() => setDeleteTarget(r)}
+        />
+      ),
     },
   ];
 
@@ -115,13 +152,34 @@ export default function DakhalPage() {
           <ChartCard title={t('dakhalExtra.cashFlow')} subtitle={t('dakhalExtra.cashFlowHint')}>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${v / 1000}k`} />
-                  <Tooltip formatter={(v) => formatCurrency(v)} />
-                  <Area type="monotone" dataKey="income" stroke="#00a76f" fill="#00a76f33" strokeWidth={2} name={t('dashboard.income')} />
-                  <Area type="monotone" dataKey="expense" stroke="#ff5630" fill="#ff563033" strokeWidth={2} name={t('dashboard.expense')} />
+                <AreaChart data={trendData} margin={CHART_MARGIN}>
+                  <ChartAreaGradients />
+                  <CartesianGrid {...CHART_GRID} vertical={false} />
+                  <XAxis dataKey="day" {...chartXAxisProps()} />
+                  <YAxis {...chartYAxisProps({ tickFormatter: formatCurrencyAxis })} />
+                  <Tooltip content={<ChartTooltip valueFormatter={(v) => formatCurrency(v)} />} />
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    stroke="url(#chartIncomeStroke)"
+                    fill={`url(#${AREA_INCOME.fillId})`}
+                    strokeWidth={2.5}
+                    name={t('dashboard.income')}
+                    dot={false}
+                    activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: AREA_INCOME.stroke }}
+                    {...CHART_ANIMATION}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="expense"
+                    stroke="url(#chartExpenseStroke)"
+                    fill={`url(#${AREA_EXPENSE.fillId})`}
+                    strokeWidth={2.5}
+                    name={t('dashboard.expense')}
+                    dot={false}
+                    activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: AREA_EXPENSE.stroke }}
+                    {...CHART_ANIMATION}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -152,11 +210,24 @@ export default function DakhalPage() {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-ink-muted">{t('common.amount')}</span><span className="font-bold">{formatCurrency(selected.amount)}</span></div>
             <div className="flex justify-between"><span className="text-ink-muted">{t('dakhalExtra.category')}</span><span className="font-bold">{selected.category === 'income' ? t('dashboard.income') : t('dashboard.expense')}</span></div>
-            <div className="flex justify-between"><span className="text-ink-muted">{t('common.date')}</span><span className="font-bold">{selected.date}</span></div>
+            <div className="flex justify-between"><span className="text-ink-muted">{t('common.date')}</span><span className="font-bold">{formatSolarDisplay(selected.date)}</span></div>
             <StatusBadge status={selected.status} />
           </div>
         )}
       </Modal>
+
+      <DeleteConfirmModal
+        open={!!deleteTarget}
+        name={deleteTarget?.title}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          await transactionService.delete(deleteTarget.id);
+          setDeleteTarget(null);
+          if (selected?.id === deleteTarget.id) setSelected(null);
+          await load();
+          notify.success(t('toasts.transactionRemoved'));
+        }}
+      />
     </>
   );
 }
