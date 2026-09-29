@@ -348,6 +348,13 @@ export const fa = {
     category: 'دسته',
     deleted: 'معامله حذف شد',
   },
+  expensesDesc: {
+    stockPurchase: 'خرید موجودی: {{qty}} @ ؋{{unit}}',
+    initialStock: 'موجودی اولیه: {{qty}} @ ؋{{unit}}',
+    fromSupplier: ' از {{supplier}}',
+    purchasedFrom: 'خرید از {{supplier}}',
+    stockPurchaseShort: 'خرید موجودی',
+  },
   expensesExtra: {
     spend: 'مصرف به تفکیک دسته',
     spendHint: 'تفکیک همه مصارف',

@@ -19,7 +19,7 @@ export const ps = {
     customer: 'مشتري',
     phone: 'تلیفون',
     name: 'نوم',
-    notes: 'یادښتونه',
+    notes: 'یاداښتونه',
     type: 'ډول',
     quantity: 'شمېر',
     price: 'بیه',
@@ -347,6 +347,13 @@ export const ps = {
     empty: 'معامله ونه موندل شوه.',
     category: 'کټګوري',
     deleted: 'معامله لرې شوه',
+  },
+  expensesDesc: {
+    stockPurchase: 'د ذخیرې پیرود: {{qty}} @ ؋{{unit}}',
+    initialStock: 'لومړنۍ ذخیره: {{qty}} @ ؋{{unit}}',
+    fromSupplier: ' له {{supplier}} څخه',
+    purchasedFrom: 'له {{supplier}} څخه پیرود',
+    stockPurchaseShort: 'د ذخیرې پیرود',
   },
   expensesExtra: {
     spend: 'مصرف د کټګورۍ له مخې',
