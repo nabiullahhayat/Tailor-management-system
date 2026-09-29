@@ -40,6 +40,7 @@ import { DeleteConfirmModal } from '../components/modals/CustomerModals.jsx';
 import { expenseService } from '../services/index.js';
 import { formatCurrency, formatCurrencyAxis, getExpensesByCategory, getExpensesMonthlyTrend } from '../utils/chartData.js';
 import { notify } from '../utils/toast.js';
+import { formatExpenseDescription } from '../utils/expenseDisplay.js';
 import { TrendingDown } from 'lucide-react';
 
 const CATEGORY_FILTERS = ['All', 'Fabric', 'Machinery', 'Other'];
@@ -136,7 +137,11 @@ export default function ExpensesPage() {
     { key: 'name', label: t('expenses.expense'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'category', label: t('expenses.category'), render: (r) => t(`filters.${r.category}`, { defaultValue: r.category }) },
     { key: 'date', label: t('common.date'), render: (r) => formatSolarDisplay(r.date) },
-    { key: 'description', label: t('common.notes'), render: (r) => r.description || '—' },
+    {
+      key: 'description',
+      label: t('common.notes'),
+      render: (r) => formatExpenseDescription(r.description, t),
+    },
     { key: 'amount', label: t('common.amount'), render: (r) => <span className="font-bold text-danger">{formatCurrency(r.amount)}</span> },
     {
       key: 'actions',
@@ -261,7 +266,7 @@ export default function ExpensesPage() {
             </div>
             <div className="rounded-lg bg-background px-3 py-2">
               <p className="text-xs text-ink-muted">{t('common.notes')}</p>
-              <p className="font-semibold">{viewTarget.description || '—'}</p>
+              <p className="font-semibold">{formatExpenseDescription(viewTarget.description, t)}</p>
             </div>
           </div>
         )}

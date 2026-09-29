@@ -348,6 +348,13 @@ export const en = {
     category: 'Category',
     deleted: 'Transaction removed',
   },
+  expensesDesc: {
+    stockPurchase: 'Stock purchase: {{qty}} @ ؋{{unit}}',
+    initialStock: 'Initial stock: {{qty}} @ ؋{{unit}}',
+    fromSupplier: ' from {{supplier}}',
+    purchasedFrom: 'Purchased from {{supplier}}',
+    stockPurchaseShort: 'Stock purchase',
+  },
   expensesExtra: {
     spend: 'Spend by Category',
     spendHint: 'All-time expense breakdown',
