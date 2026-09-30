@@ -16,12 +16,10 @@ import ChartAreaGradients from '../components/charts/ChartAreaGradients.jsx';
 import ChartTooltip from '../components/charts/ChartTooltip.jsx';
 import {
   CHART_ANIMATION,
-  CHART_GRID,
   CHART_MARGIN,
   AREA_EXPENSE,
   AREA_INCOME,
-  chartXAxisProps,
-  chartYAxisProps,
+  useChartTheme,
 } from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import SearchInput from '../components/ui/SearchInput.jsx';
@@ -51,6 +49,7 @@ function getTransactionGroup(tx) {
 
 export default function DakhalPage() {
   const { t } = useTranslation();
+  const { CHART_GRID, chartXAxisProps, chartYAxisProps } = useChartTheme();
   const [transactions, setTransactions] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All Types');
@@ -109,7 +108,15 @@ export default function DakhalPage() {
   }, [transactions, categoryFilter, typeFilter, query]);
 
   const columns = [
-    { key: 'title', label: t('dakhal.description'), render: (r) => <span className="font-medium text-ink">{r.title}</span> },
+    {
+      key: 'title',
+      label: t('dakhal.description'),
+      render: (r) => (
+        <span className="font-medium text-ink">
+          {t(`ledger.${r.type}`, { defaultValue: r.title })}
+        </span>
+      ),
+    },
     { key: 'type', label: t('common.type'), render: (r) => t(`ledger.${r.type}`, { defaultValue: r.type }) },
     { key: 'date', label: t('common.date'), render: (r) => formatSolarDisplay(r.date) },
     {
@@ -125,12 +132,9 @@ export default function DakhalPage() {
     {
       key: 'actions',
       label: t('common.actions'),
-      className: 'w-28',
+      className: 'w-28 table-actions-cell',
       render: (r) => (
-        <TableRowActions
-          onView={() => setSelected(r)}
-          onDelete={() => setDeleteTarget(r)}
-        />
+        <TableRowActions onDelete={() => setDeleteTarget(r)} />
       ),
     },
   ];
@@ -205,7 +209,12 @@ export default function DakhalPage() {
         <DataTable columns={columns} rows={filtered} onRowClick={setSelected} emptyMessage={t('dakhalExtra.empty')} />
       </PageShell>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.title} subtitle={selected ? t(`ledger.${selected.type}`, { defaultValue: selected.type }) : ''}>
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? t(`ledger.${selected.type}`, { defaultValue: selected.title }) : ''}
+        subtitle={selected ? t(`ledger.${selected.type}`, { defaultValue: selected.type }) : ''}
+      >
         {selected && (
           <div className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-ink-muted">{t('common.amount')}</span><span className="font-bold">{formatCurrency(selected.amount)}</span></div>

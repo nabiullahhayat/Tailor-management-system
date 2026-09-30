@@ -260,6 +260,8 @@ export const DEFAULT_APP_SETTINGS = {
   shopPhone: '',
   shopAddress: '',
   currency: 'PKR',
+  adminEmail: 'admin@gmail.com',
+  adminPassword: 'nabiullahadmin@2070',
 };
 
 /** IDs of sample records seeded in early app versions — stripped on load. */

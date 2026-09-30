@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
+import SearchableSelect from '../components/ui/SearchableSelect.jsx';
 import SolarDatePicker from '../components/ui/SolarDatePicker.jsx';
 import Button from '../components/ui/Button.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
@@ -381,8 +382,17 @@ export default function AddOrderPage() {
 
   const savedMeasurements = selectedCustomer?.measurements || {};
 
+  const customerOptions = useMemo(
+    () =>
+      customers.map((c) => ({
+        value: c.id,
+        label: c.name,
+      })),
+    [customers],
+  );
+
   const selectClass =
-    'w-full rounded-xl border-2 border-black/10 px-3 py-2 text-sm';
+    'input-field w-full rounded-xl border-2 px-3 py-2 text-base bg-surface';
 
   return (
     <PageShell
@@ -390,27 +400,23 @@ export default function AddOrderPage() {
       subtitle={t('newOrder.subtitle')}
       breadcrumbs={[{ label: t('common.home'), to: '/' }, { label: t('orders.title'), to: '/orders' }, { label: t('common.newOrder') }]}
     >
-      <div className="mx-auto w-full max-w-[1440px]">
+      <div className="new-order-form mx-auto w-full max-w-[1440px]">
         <div className="grid items-start gap-5 xl:grid-cols-12">
           <div className="space-y-5 xl:col-span-7">
             <div className="form-panel p-4 lg:p-5">
               <SectionTitle title={t('newOrder.customer')} />
               <div className="grid gap-3 md:grid-cols-2">
-                <select
+                <SearchableSelect
                   value={customerId}
                   onChange={(e) => {
                     setCustomerId(e.target.value);
                     if (e.target.value) setCustomerName('');
                   }}
-                  className={selectClass}
-                >
-                  <option value="">{t('newOrder.selectCustomer')}</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.tokenNumber})
-                    </option>
-                  ))}
-                </select>
+                  options={customerOptions}
+                  emptyOptionLabel={t('newOrder.selectCustomer')}
+                  searchPlaceholder={t('newOrder.searchCustomer')}
+                  placeholder={t('salesExtra.noMatches')}
+                />
                 <Input
                   placeholder={t('newOrder.newCustomer')}
                   value={customerName}
@@ -418,12 +424,12 @@ export default function AddOrderPage() {
                     setCustomerName(e.target.value);
                     if (e.target.value.trim()) setCustomerId('');
                   }}
-                  error={errors.customer}
+                  error={errors.customer && !customerId ? errors.customer : ''}
                 />
               </div>
 
               {checkoutCustomer && (
-                <div className="mt-3 grid gap-2 rounded-xl border border-black/5 bg-background px-3 py-2 sm:grid-cols-2">
+                <div className="theme-surface-panel mt-3 grid gap-2 sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-ink-muted">{t('newOrder.debt')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
@@ -448,7 +454,7 @@ export default function AddOrderPage() {
               </div>
 
               {selectedCustomer && Object.keys(savedMeasurements).length > 0 && (
-                <div className="mt-3 rounded-xl border border-primary-soft/80 bg-background px-3 py-2">
+                <div className="theme-surface-panel mt-3">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
                     {t('newOrder.savedMeasurements')}
                   </p>
@@ -469,7 +475,7 @@ export default function AddOrderPage() {
             <div className="form-panel p-4 lg:p-5">
               <SectionTitle title={t('newOrder.orderTypes')} subtitle={t('newOrder.orderTypesHint')} />
               {orderTypes.length === 0 ? (
-                <div className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
+                <div className="callout-warning rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
                   {t('newOrder.noTypes')}
                 </div>
               ) : (
@@ -482,7 +488,7 @@ export default function AddOrderPage() {
                       <div
                         key={type.id}
                         className={`rounded-xl border px-3 py-3 ${
-                          checked ? 'border-accent/40 bg-primary-soft/30' : 'border-black/10 bg-surface'
+                          checked ? 'border-accent/40 bg-primary-soft/30 dark:bg-primary-soft/15' : 'border-primary-soft bg-surface'
                         }`}
                       >
                         <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
@@ -494,7 +500,7 @@ export default function AddOrderPage() {
                           {type.name}
                         </label>
                         {checked && (
-                          <div className="mt-3 space-y-3 border-t border-black/5 pt-3">
+                          <div className="mt-3 space-y-3 border-t border-primary-soft/50 pt-3">
                             <div className="grid max-w-md gap-3 sm:grid-cols-2">
                               <Input
                                 label={t('newOrder.pricePerItem')}
@@ -558,7 +564,7 @@ export default function AddOrderPage() {
                                         className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
                                           checked
                                             ? 'border-accent bg-primary-soft/40 font-semibold text-ink'
-                                            : 'border-black/10 bg-surface text-ink-secondary'
+                                            : 'border-primary-soft bg-surface text-ink-secondary dark:bg-primary-soft/10'
                                         }`}
                                       >
                                         <input
@@ -615,7 +621,7 @@ export default function AddOrderPage() {
                   })}
                 </ul>
               )}
-              <div className="my-3 rounded-xl bg-emerald-50 px-4 py-2">
+              <div className="callout-success theme-surface-panel my-3">
                 <p className="text-xs text-ink-muted">{t('newOrder.totalAmount')}</p>
                 <p className="text-xl font-extrabold text-success">؋{totalAmount.toLocaleString()}</p>
               </div>
@@ -624,7 +630,7 @@ export default function AddOrderPage() {
                 {t('newOrder.paymentHint')}
               </p>
               {checkoutCustomer && prepaidAvailable > 0 && totalAmount > 0 && (
-                <p className="mb-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                <p className="callout-info theme-surface-panel mb-2 text-sm">
                   {t('newOrder.creditWillUse', {
                     amount: Math.min(prepaidAvailable, totalAmount).toLocaleString(),
                     balance: prepaidAvailable.toLocaleString(),
@@ -670,7 +676,7 @@ export default function AddOrderPage() {
               </div>
 
               {checkoutPreview && totalAmount > 0 && (
-                <div className="mt-3 rounded-xl border border-black/5 bg-background px-3 py-2 text-xs leading-relaxed">
+                <div className="theme-surface-panel mt-3 text-sm leading-relaxed">
                   {checkoutPreview.walletUsed > 0 && (
                     <p>
                       {t('salesExtra.prepaidApplied')}: <strong>؋{checkoutPreview.walletUsed.toLocaleString()}</strong>
@@ -728,8 +734,7 @@ export default function AddOrderPage() {
                 <Input label={t('common.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                <span>{t('newOrder.tokenPreview', { token: `ORD-${String(orders.length + 1).padStart(4, '0')}` })}</span>
+              <div className="mt-3 flex justify-end">
                 <Button className="shrink-0" onClick={() => validate() && setConfirmOpen(true)}>
                   {t('newOrder.review')}
                 </Button>

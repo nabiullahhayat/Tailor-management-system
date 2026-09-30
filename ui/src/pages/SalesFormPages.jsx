@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
-import SearchInput from '../components/ui/SearchInput.jsx';
+import SearchableSelect from '../components/ui/SearchableSelect.jsx';
 import Button from '../components/ui/Button.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import SaleBillModal from '../components/modals/SaleBillModal.jsx';
@@ -36,23 +36,22 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
   const [billOpen, setBillOpen] = useState(false);
   const [lastSale, setLastSale] = useState(null);
   const [errors, setErrors] = useState({});
-  const [itemSearch, setItemSearch] = useState('');
-  const [customerSearch, setCustomerSearch] = useState('');
-
   const selectedItem = items.find((i) => i.id === itemId);
   const total = (parseFloat(qty) || 0) * (parseFloat(price) || 0);
 
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase();
-    if (!q) return salesCustomers;
-    return salesCustomers.filter((c) => c.name.toLowerCase().includes(q));
-  }, [salesCustomers, customerSearch]);
+  const customerOptions = useMemo(
+    () => salesCustomers.map((c) => ({ value: c.id, label: c.name })),
+    [salesCustomers],
+  );
 
-  const filteredItems = useMemo(() => {
-    const q = itemSearch.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [items, itemSearch]);
+  const itemOptions = useMemo(
+    () =>
+      items.map((item) => ({
+        value: item.id,
+        label: `${item.name} — ${t('stock.stock')}: ${getStock(item)}`,
+      })),
+    [items, getStock, t],
+  );
 
   const selectedSalesCustomer = salesCustomerId
     ? salesCustomers.find((c) => c.id === salesCustomerId)
@@ -111,8 +110,6 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
     setQty('');
     setPrice('');
     setCashPaid('');
-    setItemSearch('');
-    setCustomerSearch('');
     setErrors({});
   };
 
@@ -219,9 +216,6 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
     { label: t('salesExtra.paymentStatus'), value: t(`status.${checkoutPreview?.paymentStatus || 'Pending'}`) },
   ];
 
-  const selectClass =
-    'w-full rounded-xl border-2 border-black/10 px-3 py-2 text-sm';
-
   return (
     <PageShell
       title={title}
@@ -233,29 +227,19 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
           <div className="space-y-5 xl:col-span-7">
             <div className="form-panel p-4 lg:p-5">
               <SectionTitle title={t('sales.customer')} />
-              <div className="mb-2 max-w-md">
-                <SearchInput
-                  value={customerSearch}
-                  onChange={setCustomerSearch}
-                  placeholder={t('sales.searchCustomers')}
-                />
-              </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <select
+                <SearchableSelect
                   value={salesCustomerId}
                   onChange={(e) => {
                     setSalesCustomerId(e.target.value);
                     if (e.target.value) setCustomerName('');
                   }}
-                  className={selectClass}
-                >
-                  <option value="">{t('sales.selectCustomer')}</option>
-                  {filteredCustomers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  options={customerOptions}
+                  emptyOptionLabel={t('sales.selectCustomer')}
+                  searchPlaceholder={t('sales.searchCustomers')}
+                  placeholder={t('salesExtra.noMatches')}
+                  error={errors.customer && !customerName.trim() ? errors.customer : ''}
+                />
                 <Input
                   placeholder={t('sales.newCustomer')}
                   value={customerName}
@@ -268,7 +252,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
               </div>
 
               {checkoutCustomer && (
-                <div className="mt-3 grid gap-2 rounded-xl border border-primary-soft bg-background px-3 py-2 sm:grid-cols-2">
+                <div className="theme-surface-panel mt-3 grid gap-2 sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-ink-muted">{t('salesExtra.outstanding')}</p>
                     <p className={`text-base font-bold ${outstandingDebt > 0 ? 'text-danger' : 'text-success'}`}>
@@ -285,33 +269,19 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
 
             <div className="form-panel p-4 lg:p-5">
               <SectionTitle title={itemLabel} subtitle={t('salesExtra.selectHint', { item: itemLabel })} />
-              <div className="mb-3 max-w-md">
-                <SearchInput
-                  value={itemSearch}
-                  onChange={setItemSearch}
-                  placeholder={t('salesExtra.searchItem', { item: itemLabel })}
-                />
-              </div>
-              <select
+              <SearchableSelect
                 value={itemId}
                 onChange={(e) => {
                   const item = items.find((i) => i.id === e.target.value);
                   setItemId(e.target.value);
                   if (item) setPrice(String(getPrice(item)));
                 }}
-                className={selectClass}
-              >
-                <option value="">{t('stock.selectItem')}</option>
-                {filteredItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} — {t('stock.stock')}: {getStock(item)}
-                  </option>
-                ))}
-              </select>
-              {errors.item && <p className="mt-1 text-xs text-danger">{errors.item}</p>}
-              {itemSearch && filteredItems.length === 0 && (
-                <p className="mt-2 text-sm text-ink-muted">{t('salesExtra.noMatches')}</p>
-              )}
+                options={itemOptions}
+                emptyOptionLabel={t('stock.selectItem')}
+                searchPlaceholder={t('salesExtra.searchItem', { item: itemLabel })}
+                placeholder={t('salesExtra.noMatches')}
+                error={errors.item}
+              />
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <Input
@@ -331,7 +301,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
               </div>
 
               {selectedItem && (
-                <div className="mt-3 rounded-lg bg-background px-3 py-2 text-sm text-ink-secondary">
+                <div className="theme-surface-panel mt-3 text-sm">
                   {t('common.name')}: <strong className="text-ink">{selectedItem.name}</strong>
                   {' · '}
                   {t('stock.stock')}: <strong>{getStock(selectedItem)}</strong>
@@ -347,7 +317,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                 {t('sales.paymentHint')}
               </p>
               {checkoutCustomer && prepaidAvailable > 0 && total > 0 && (
-                <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                <p className="callout-info theme-surface-panel mb-3 text-sm">
                   {t('newOrder.creditWillUse', {
                     amount: Math.min(prepaidAvailable, total).toLocaleString(),
                     balance: prepaidAvailable.toLocaleString(),
@@ -367,7 +337,7 @@ function SaleFormPage({ title, subtitle, saleType, itemLabel, qtyLabel, qtyField
                 placeholder={t('newOrder.amountNow')}
               />
 
-              <div className="my-4 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50/80 px-3 py-3 sm:grid-cols-4">
+              <div className="theme-summary-grid my-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{t('common.total')}</p>
                   <p className="text-base font-extrabold text-ink">؋{total.toLocaleString()}</p>

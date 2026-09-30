@@ -146,6 +146,24 @@ export function OrderProvider({ children }) {
     }
   }, []);
 
+  const setOrderPaidAmount = useCallback(async (id, { paidAmount, recordIncome = true }) => {
+    try {
+      const updatedOrder = await orderService.setPaidAmount(id, { paidAmount, recordIncome });
+      const transformed = {
+        ...updatedOrder,
+        date: updatedOrder.orderDate
+          ? new Date(updatedOrder.orderDate).toISOString().split('T')[0]
+          : '',
+        deliveryDate: coerceDeliveryDateForState(updatedOrder.deliveryDate),
+      };
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...transformed } : o)));
+      return transformed;
+    } catch (err) {
+      console.error('Error setting order paid amount:', err);
+      throw err;
+    }
+  }, []);
+
   /* ─── delete order ──────────────────────────────────────── */
   const deleteOrder = useCallback(async (id) => {
     try {
@@ -167,6 +185,7 @@ export function OrderProvider({ children }) {
       addOrder, 
       updateOrderStatus,
       recordOrderPayment,
+      setOrderPaidAmount,
       updateOrder,
       deleteOrder,
       refreshOrders: fetchOrders,

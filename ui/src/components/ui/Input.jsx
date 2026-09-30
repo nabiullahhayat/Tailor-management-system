@@ -19,9 +19,9 @@ export default function Input({
           </span>
         )}
         <input
-          className={`w-full rounded-xl border-2 bg-surface px-3 py-2.5 text-sm text-ink outline-none transition ${
+          className={`input-field w-full rounded-xl border-2 bg-surface px-3 py-2.5 text-base text-ink outline-none transition ${
             Icon ? 'pl-10' : ''
-          } ${error ? 'border-danger' : 'border-black/10 focus:border-navy'}`}
+          } ${error ? 'border-danger focus:border-danger' : ''}`}
           {...props}
         />
       </div>

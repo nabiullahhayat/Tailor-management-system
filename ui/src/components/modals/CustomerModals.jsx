@@ -70,7 +70,7 @@ export default function CustomerDetailsModal({ open, customer, onClose }) {
   if (!customer) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title={customer.name} subtitle={customer.tokenNumber} size="xl">
+    <Modal open={open} onClose={onClose} title={customer.name} subtitle={customer.phone} size="xl">
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-background px-3 py-2">
@@ -171,7 +171,7 @@ export function EditCustomerModal({
   const collectedAmount = Math.max(0, initialDebt - nextRemaining);
 
   return (
-    <Modal open={open} onClose={onClose} title={t('modals.editOrderCustomer')} subtitle={customer.tokenNumber} size="lg">
+    <Modal open={open} onClose={onClose} title={t('modals.editOrderCustomer')} subtitle={customer.phone} size="lg">
       <Input label={t('addsExtra.nameRequired')} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
       <Input label={t('addsExtra.phoneRequired')} value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
 
@@ -220,7 +220,7 @@ export function EditCustomerModal({
       </div>
 
       <p className="mb-2 text-sm font-semibold text-ink">{t('modals.measurements')}</p>
-      <div className="grid max-h-[40vh] gap-3 overflow-y-auto sm:grid-cols-2">
+      <div className="app-scroll grid max-h-[40vh] gap-3 overflow-y-auto sm:grid-cols-2">
         {fieldDefs.map(({ id, name: fieldName }) => (
           <Input
             key={id}
@@ -339,7 +339,7 @@ export function SalesCustomerDetailsModal({
         {recentSales.length > 0 && (
           <div>
             <p className="mb-2 text-sm font-semibold text-ink">{t('modals.recentSales')}</p>
-            <div className="max-h-48 space-y-2 overflow-y-auto">
+            <div className="app-scroll max-h-48 space-y-2 overflow-y-auto">
               {recentSales.map((sale) => {
                 const saleTotal = Number(sale.totalAmount || 0);
                 const salePaid = Number(sale.paidAmount || 0);
@@ -417,7 +417,7 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
     try {
       const payload = { ...measurements };
       const customer = await onSave(name.trim(), phone.trim(), payload);
-      notify.success(t('toasts.customerSaved'), t('toasts.customerSavedToken', { token: customer.tokenNumber }));
+      notify.success(t('toasts.customerSaved'), t('toasts.customerSavedDesc', { name: customer.name }));
       onClose();
     } catch (err) {
       notify.error(t('toasts.couldNotSaveCustomer'), err.message);
@@ -450,7 +450,7 @@ export function AddOrderCustomerModal({ open, onClose, onSave }) {
               </Link>
             </div>
           ) : (
-            <div className="grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
+            <div className="app-scroll grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
               {fieldDefs.map(({ id, name: fieldName }) => (
                 <Input
                   key={id}

@@ -19,7 +19,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
         onClick={onClose}
       />
       <div
-        className={`relative z-10 w-full ${sizes[size]} max-h-[90vh] overflow-y-auto rounded-2xl border border-black/5 bg-surface shadow-2xl`}
+        className={`app-scroll relative z-10 w-full ${sizes[size]} max-h-[90vh] overflow-y-auto rounded-2xl border border-black/5 bg-surface shadow-2xl dark:border-primary-soft/50`}
       >
         {(title || subtitle) && (
           <div className="flex items-start justify-between border-b border-black/5 px-5 py-4">

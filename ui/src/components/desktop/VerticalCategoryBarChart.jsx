@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import ChartTooltip from '../charts/ChartTooltip.jsx';
 import ModernBarGradients, { barGradientUrl } from '../charts/ModernBarGradients.jsx';
-import { CHART_ANIMATION, CHART_GRID, chartXAxisProps } from '../charts/chartTheme.js';
+import { CHART_ANIMATION, useChartTheme } from '../charts/chartTheme.js';
 
 /**
  * Horizontal bars with category names in a column beside the plot (not inside chart margin).
@@ -21,6 +21,8 @@ export default function VerticalCategoryBarChart({
   formatXTick,
   formatTooltip,
 }) {
+  const { CHART_GRID, chartXAxisProps } = useChartTheme();
+
   if (!data?.length) {
     return <div className="flex h-64 items-center justify-center text-sm text-ink-muted">—</div>;
   }

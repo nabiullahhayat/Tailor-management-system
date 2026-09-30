@@ -69,7 +69,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
         notes,
         customerFabricMeters,
       });
-      notify.success(t('toasts.orderUpdated'), order.tokenNumber);
+      notify.success(t('toasts.orderUpdated'), order.customerName);
       onClose();
     } catch (err) {
       notify.error(t('toasts.updateFailed'), err.message || t('toasts.couldNotUpdateOrder'));
@@ -79,7 +79,7 @@ export default function EditOrderModal({ open, order, onClose, onSave }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t('modals.editOrder')} subtitle={order.tokenNumber} size="md">
+    <Modal open={open} onClose={onClose} title={t('modals.editOrder')} subtitle={order.customerName} size="md">
       <div className="space-y-3">
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="rounded-xl bg-background px-3 py-2 text-sm">

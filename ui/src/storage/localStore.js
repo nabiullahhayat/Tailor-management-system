@@ -1585,11 +1585,15 @@ export async function deleteTransaction(id) {
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 function normalizeAppSettings(settings) {
-  const s = { ...settings };
+  const s = { ...DEFAULT_APP_SETTINGS, ...settings };
   if (s.appIconPath) {
     s.appIconDataUrl = '';
   } else if (typeof s.appIconDataUrl === 'string' && s.appIconDataUrl.length > 80_000) {
     s.appIconDataUrl = '';
+  }
+  if (!s.adminEmail?.trim()) s.adminEmail = DEFAULT_APP_SETTINGS.adminEmail;
+  if (!s.adminPassword || String(s.adminPassword).trim() === '') {
+    s.adminPassword = DEFAULT_APP_SETTINGS.adminPassword;
   }
   return s;
 }

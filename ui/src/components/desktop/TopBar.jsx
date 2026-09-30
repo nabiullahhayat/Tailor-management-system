@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bell, Calendar, Menu, Plus, Search, X } from 'lucide-react';
+import { AlertTriangle, Bell, Calendar, Menu, Moon, Plus, Search, Sun, X } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext.jsx';
 import { useSettings } from '../../context/SettingsContext.jsx';
 import AppIconMark from '../ui/AppIconMark.jsx';
 import { fallbackLetterFromAppName } from '../../utils/appIcon.js';
@@ -25,6 +26,7 @@ import { getTodaySolar } from '../../utils/solarDate.js';
 export default function TopBar({ onMenuClick }) {
   const { t } = useTranslation();
   const { appName, appIconUrl } = useSettings();
+  const { theme, toggleTheme } = useTheme();
   const { fabrics, machinery } = useStock();
   const { orders } = useOrders();
   const location = useLocation();
@@ -122,7 +124,7 @@ export default function TopBar({ onMenuClick }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('topbar.searchPlaceholder')}
-            className="w-full rounded-lg border border-primary-soft bg-background py-2 pl-9 pr-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15"
+            className="input-field w-full rounded-lg border-2 bg-background py-2 pl-9 pr-4 text-base outline-none transition"
           />
         </div>
       </form>
@@ -155,7 +157,7 @@ export default function TopBar({ onMenuClick }) {
                 <p className="px-4 py-6 text-center text-sm text-ink-muted">{t('topbar.none')}</p>
               ) : (
                 <>
-                  <ul className="overflow-y-auto py-1 flex-1">
+                  <ul className="app-scroll overflow-y-auto py-1 flex-1">
                     {visibleDeliveryAlerts.map((order) => {
                       const dismissKey = deliveryNotificationKey(order.id, getTomorrowDateKey());
                       return (
@@ -255,6 +257,16 @@ export default function TopBar({ onMenuClick }) {
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="rounded-lg border border-primary-soft p-2 text-ink-muted hover:bg-primary-soft"
+          aria-label={theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
+          title={theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
 
         <div className="hidden items-center gap-2 rounded-lg bg-primary-soft/80 px-3 py-2 text-sm font-medium text-ink-secondary xl:flex">
           <Calendar size={16} className="text-accent" />

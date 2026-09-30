@@ -19,7 +19,7 @@ export default function ChartTooltip({ active, payload, label, valueFormatter, l
             <li key={`${entry.dataKey}-${entry.name}`} className="flex items-center justify-between gap-4">
               <span className="flex items-center gap-2 text-xs font-medium text-ink-secondary">
                 <span
-                  className="h-2 w-2 shrink-0 rounded-full ring-2 ring-white"
+                  className="h-2 w-2 shrink-0 rounded-full ring-2 ring-surface dark:ring-background"
                   style={{ backgroundColor: entry.color || entry.payload?.fill }}
                 />
                 {entry.name}

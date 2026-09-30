@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next';
 import PageShell from '../components/desktop/PageShell.jsx';
 import SectionTitle from '../components/ui/SectionTitle.jsx';
 import Input from '../components/ui/Input.jsx';
+import PasswordInput from '../components/ui/PasswordInput.jsx';
 import Button from '../components/ui/Button.jsx';
 import AppIconMark from '../components/ui/AppIconMark.jsx';
 import { useSettings } from '../context/SettingsContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 import { settingsService } from '../services/index.js';
 import { fallbackLetterFromAppName } from '../utils/appIcon.js';
 import { APP_LANGUAGES } from '../i18n/languages.js';
@@ -16,6 +19,8 @@ const ACCEPT_ICON = 'image/png,image/jpeg,image/webp,image/gif';
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { appName, language, appIconUrl, saveSettings, uploadAppIcon, removeAppIcon } = useSettings();
+  const { logout, refreshCredentials } = useAuth();
+  const navigate = useNavigate();
   const [iconUploading, setIconUploading] = useState(false);
   const [form, setForm] = useState({
     appName: '',
@@ -23,6 +28,8 @@ export default function SettingsPage() {
     shopPhone: '',
     shopAddress: '',
     language: 'pashto',
+    adminEmail: '',
+    adminPassword: '',
   });
   const [saved, setSaved] = useState(false);
 
@@ -34,12 +41,19 @@ export default function SettingsPage() {
         shopPhone: settings.shopPhone || '',
         shopAddress: settings.shopAddress || '',
         language: settings.language || language,
+        adminEmail: settings.adminEmail || '',
+        adminPassword: settings.adminPassword || '',
       });
     });
   }, [appName, language]);
 
   const handleSave = async () => {
-    await saveSettings(form);
+    const payload = { ...form };
+    if (!payload.adminPassword?.trim()) {
+      delete payload.adminPassword;
+    }
+    await saveSettings(payload);
+    await refreshCredentials();
     notify.success(t('settings.savedToast'), t('settings.savedToastDesc'));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -89,39 +103,71 @@ export default function SettingsPage() {
     >
       <div className="mx-auto w-full max-w-[1280px]">
         {saved && (
-          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-success">
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-success dark:border-emerald-800/50 dark:bg-emerald-950/35">
             {t('settings.saved')}
           </div>
         )}
 
         <div className="grid items-start gap-5 lg:grid-cols-12">
-          <div className="form-panel p-4 lg:col-span-7 lg:p-5">
-            <SectionTitle title={t('settings.shopProfile')} subtitle={t('settings.shopProfileHint')} />
-            <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-              <Input
-                label={t('settings.appName')}
-                value={form.appName}
-                onChange={(e) => setForm((p) => ({ ...p, appName: e.target.value }))}
-                className="mb-3"
-              />
-              <Input
-                label={t('settings.shopName')}
-                value={form.shopName}
-                onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
-                className="mb-3"
-              />
-              <Input
-                label={t('settings.shopPhone')}
-                value={form.shopPhone}
-                onChange={(e) => setForm((p) => ({ ...p, shopPhone: e.target.value }))}
-                className="mb-3"
-              />
-              <Input
-                label={t('settings.shopAddress')}
-                value={form.shopAddress}
-                onChange={(e) => setForm((p) => ({ ...p, shopAddress: e.target.value }))}
-                className="mb-3"
-              />
+          <div className="space-y-5 lg:col-span-7">
+            <div className="form-panel p-4 lg:p-5">
+              <SectionTitle title={t('settings.shopProfile')} subtitle={t('settings.shopProfileHint')} />
+              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                <Input
+                  label={t('settings.appName')}
+                  value={form.appName}
+                  onChange={(e) => setForm((p) => ({ ...p, appName: e.target.value }))}
+                  className="mb-3"
+                />
+                <Input
+                  label={t('settings.shopName')}
+                  value={form.shopName}
+                  onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
+                  className="mb-3"
+                />
+                <Input
+                  label={t('settings.shopPhone')}
+                  value={form.shopPhone}
+                  onChange={(e) => setForm((p) => ({ ...p, shopPhone: e.target.value }))}
+                  className="mb-3"
+                />
+                <Input
+                  label={t('settings.shopAddress')}
+                  value={form.shopAddress}
+                  onChange={(e) => setForm((p) => ({ ...p, shopAddress: e.target.value }))}
+                  className="mb-3"
+                />
+              </div>
+
+              <div className="mt-2 border-t border-primary-soft/60 pt-5">
+                <SectionTitle title={t('settings.loginCredentials')} subtitle={t('settings.loginCredentialsHint')} />
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Input
+                    label={t('settings.adminEmail')}
+                    type="email"
+                    value={form.adminEmail}
+                    onChange={(e) => setForm((p) => ({ ...p, adminEmail: e.target.value }))}
+                    className="mb-3"
+                  />
+                  <PasswordInput
+                    label={t('settings.adminPassword')}
+                    value={form.adminPassword}
+                    onChange={(e) => setForm((p) => ({ ...p, adminPassword: e.target.value }))}
+                    className="mb-3"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                >
+                  {t('auth.signOut')}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -186,7 +232,7 @@ export default function SettingsPage() {
                     className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
                       form.language === value
                         ? 'border-accent bg-primary-soft ring-1 ring-accent/20'
-                        : 'border-black/10 bg-background hover:border-black/20'
+                        : 'border-black/10 bg-background hover:border-black/20 dark:border-white/25 dark:bg-surface dark:hover:border-white/40'
                     }`}
                   >
                     <p className="text-sm font-bold text-ink">{lang.native}</p>

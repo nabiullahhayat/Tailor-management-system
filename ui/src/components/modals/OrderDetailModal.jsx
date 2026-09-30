@@ -139,7 +139,7 @@ export default function OrderDetailModal({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={displayOrder.tokenNumber} subtitle={displayOrder.customerName} size="lg">
+      <Modal open={open} onClose={onClose} title={displayOrder.customerName} subtitle={displayOrder.orderType} size="lg">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={displayOrder.status} />

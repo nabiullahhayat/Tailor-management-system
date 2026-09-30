@@ -302,7 +302,19 @@ export default function AddsPage() {
           </div>
           <div className="space-y-3">
             {orderTypes.map((type) => (
-              <div key={type.id} className="panel p-4">
+              <div
+                key={type.id}
+                role="button"
+                tabIndex={0}
+                className="panel cursor-pointer p-4 transition hover:bg-primary-soft/20"
+                onClick={() => setViewRecord({ kind: 'orderType', data: type })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setViewRecord({ kind: 'orderType', data: type });
+                  }
+                }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-bold text-ink">{type.name}</p>
@@ -314,7 +326,6 @@ export default function AddsPage() {
                     )}
                   </div>
                   <TableRowActions
-                    onView={() => setViewRecord({ kind: 'orderType', data: type })}
                     onEdit={() => {
                       setEditingTypeId(type.id);
                       setOtName(type.name);
@@ -367,9 +378,9 @@ export default function AddsPage() {
               )}
             </div>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 overflow-hidden">
             <SectionTitle title={t('addsExtra.savedNames')} />
-            <div className="panel overflow-hidden">
+            <div className="panel min-w-0 overflow-hidden">
               <table className="measurement-names-table">
                 <thead>
                   <tr>
@@ -386,12 +397,15 @@ export default function AddsPage() {
                     </tr>
                   ) : (
                     cmPagination.pageItems.map((row) => (
-                      <tr key={row.id}>
+                      <tr
+                        key={row.id}
+                        className="cursor-pointer transition hover:bg-primary-soft/30"
+                        onClick={() => setViewRecord({ kind: 'customerMeasurement', data: row })}
+                      >
                         <td className="font-medium text-ink">{row.name}</td>
                         <td className="measurement-names-actions">
-                          <div className="flex justify-end">
+                          <div className="flex justify-center">
                             <TableRowActions
-                              onView={() => setViewRecord({ kind: 'customerMeasurement', data: row })}
                               onEdit={() => {
                                 setEditingCmId(row.id);
                                 setCmName(row.name);
@@ -461,7 +475,19 @@ export default function AddsPage() {
           </div>
           <div className="space-y-3">
             {employees.map((emp) => (
-              <div key={emp.id} className="panel p-4">
+              <div
+                key={emp.id}
+                role="button"
+                tabIndex={0}
+                className="panel cursor-pointer p-4 transition hover:bg-primary-soft/20"
+                onClick={() => setViewRecord({ kind: 'employee', data: emp })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setViewRecord({ kind: 'employee', data: emp });
+                  }
+                }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-bold text-ink">{emp.name}</p>
@@ -469,7 +495,6 @@ export default function AddsPage() {
                     <p className="text-sm font-semibold text-success">؋{Number(emp.salary || 0).toLocaleString()}</p>
                   </div>
                   <TableRowActions
-                    onView={() => setViewRecord({ kind: 'employee', data: emp })}
                     onEdit={() => {
                       setEditingEmpId(emp.id);
                       setEmpName(emp.name);
