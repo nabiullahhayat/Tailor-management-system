@@ -111,8 +111,8 @@ export default function SolarDatePicker({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className={`flex w-full items-center justify-between gap-2 rounded-xl border-2 bg-surface px-3 py-2.5 text-start text-sm text-ink outline-none transition ${
-            error ? 'border-danger' : 'border-black/10 focus:border-navy'
+          className={`input-field flex w-full items-center justify-between gap-2 rounded-xl border-2 bg-surface px-3 py-2.5 text-start text-base text-ink outline-none transition ${
+            error ? 'border-danger' : ''
           }`}
         >
           <span className={displayValue ? '' : 'text-ink-muted'}>

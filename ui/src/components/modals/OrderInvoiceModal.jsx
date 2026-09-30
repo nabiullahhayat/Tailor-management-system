@@ -45,7 +45,7 @@ export default function OrderInvoiceModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t('modals.orderInvoice')} subtitle={order.tokenNumber} size="md">
+    <Modal open={open} onClose={onClose} title={t('modals.orderInvoice')} subtitle={order.customerName} size="md">
       <div id="order-invoice-print" className="order-invoice-root mx-auto max-w-[80mm] font-mono text-[13px] leading-snug text-black">
         <div className="text-center">
           <p className="text-base font-bold uppercase">{shopName}</p>
@@ -53,8 +53,7 @@ export default function OrderInvoiceModal({
           <p className="text-xs">{line('=')}</p>
         </div>
 
-        <p className="mt-2">{t('detail.order')}: {order.tokenNumber}</p>
-        <p>{t('detail.inv')}: {order.invoiceNumber || '—'}</p>
+        <p className="mt-2">{t('detail.inv')}: {order.invoiceNumber || '—'}</p>
         <p>{t('common.date')}: {dateStr}</p>
         <p className="text-xs">{line('-')}</p>
 

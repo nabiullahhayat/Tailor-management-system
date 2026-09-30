@@ -18,6 +18,32 @@
   --color-success: #00a76f;
   --color-danger: #ff5630;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --scrollbar-size: 8px;
+  --scrollbar-thumb: rgb(100 116 139 / 0.42);
+  --scrollbar-thumb-hover: rgb(71 85 105 / 0.62);
+  --scrollbar-track: rgb(226 232 240 / 0.35);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-primary-soft: #334155;
+  --color-primary-light: #475569;
+  --color-secondary: #22d3ee;
+  --color-accent: #60a5fa;
+  --color-navy: #0a1929;
+  --color-navy-light: #132f4c;
+  --color-surface: #1e293b;
+  --color-background: #0f172a;
+  --color-ink: #f1f5f9;
+  --color-ink-secondary: #cbd5e1;
+  --color-ink-muted: #94a3b8;
+  --color-ink-light: #64748b;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --scrollbar-thumb: rgb(148 163 184 / 0.38);
+  --scrollbar-thumb-hover: rgb(203 213 225 / 0.55);
+  --scrollbar-track: rgb(15 23 42 / 0.55);
 }
 
 @layer base {
@@ -36,16 +62,53 @@
   html[dir='rtl'] body {
     font-family: "Noto Naskh Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
   }
+
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
 @layer components {
+  /* Consistent scrollbars — day & night */
+  .app-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scroll-behavior: smooth;
+  }
+
+  .app-scroll::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+
+  .app-scroll::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 9999px;
+  }
+
+  .app-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .app-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  .app-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   .sidebar-shell {
     @apply flex h-screen shrink-0 flex-col overflow-hidden border-e border-navy-light/50;
   }
 
   .sidebar-nav-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+    scrollbar-color: rgb(255 255 255 / 0.32) rgb(0 0 0 / 0.12);
+    scroll-behavior: smooth;
   }
 
   .sidebar-nav-scroll::-webkit-scrollbar {
@@ -53,20 +116,32 @@
   }
 
   .sidebar-nav-scroll::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgb(0 0 0 / 0.12);
+    border-radius: 9999px;
+    margin: 6px 0;
   }
 
   .sidebar-nav-scroll::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.22);
+    background: rgb(255 255 255 / 0.28);
     border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
   }
 
   .sidebar-nav-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgb(255 255 255 / 0.35);
+    background: rgb(255 255 255 / 0.45);
   }
 
   .topbar-shell {
     @apply shrink-0 border-b border-primary-soft bg-surface/95 backdrop-blur-md;
+  }
+
+  .dark .topbar-shell {
+    @apply border-accent/25 bg-[#162032];
+  }
+
+  .dark .sidebar-shell {
+    @apply border-e border-accent/20;
   }
 
   .panel {
@@ -75,13 +150,23 @@
 
   .chart-plot .recharts-cartesian-grid-horizontal line,
   .chart-plot .recharts-cartesian-grid-vertical line {
-    stroke: #e2e8f0;
+    stroke: #cbd5e1;
     stroke-opacity: 0.55;
+  }
+
+  .dark .chart-plot .recharts-cartesian-grid-horizontal line,
+  .dark .chart-plot .recharts-cartesian-grid-vertical line {
+    stroke: #475569;
+    stroke-opacity: 0.65;
   }
 
   .chart-plot .recharts-text {
     fill: #64748b;
     font-weight: 500;
+  }
+
+  .dark .chart-plot .recharts-text {
+    fill: #94a3b8;
   }
 
   .chart-plot .recharts-legend-item-text {
@@ -90,20 +175,62 @@
     font-weight: 500 !important;
   }
 
+  .dark .chart-plot .recharts-legend-item-text {
+    color: #94a3b8 !important;
+  }
+
+  .dark .callout-warning {
+    @apply border-amber-800/50 bg-amber-950/35 text-amber-100;
+  }
+
+  .dark .callout-info {
+    @apply border-blue-800/50 bg-blue-950/35 text-blue-100;
+  }
+
+  .dark .callout-success {
+    @apply border-emerald-800/50 bg-emerald-950/35 text-emerald-100;
+  }
+
+  .dark .status-badge {
+    @apply ring-1 ring-white/10;
+  }
+
   .chart-plot .recharts-active-dot {
     filter: drop-shadow(0 2px 6px rgb(0 102 255 / 0.35));
+  }
+
+  .input-field {
+    @apply border-black/10 focus:border-accent focus:ring-2 focus:ring-accent/15;
+  }
+
+  .dark .input-field {
+    @apply border-white/30 focus:border-white/55 focus:ring-white/15;
+  }
+
+  .dark select.input-field,
+  .dark select {
+    @apply border-white/30 bg-surface text-ink;
   }
 
   .form-panel {
     @apply rounded-xl border border-primary-soft/80 bg-surface p-6 shadow-sm;
   }
 
+  .new-order-form {
+    @apply text-base;
+  }
+
+  .new-order-form .text-sm {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
   .data-table {
-    @apply w-full min-w-[720px] table-fixed text-left text-sm;
+    @apply w-full min-w-[720px] table-fixed text-left text-base;
   }
 
   .data-table-compact {
-    @apply w-full table-fixed text-left text-xs;
+    @apply w-full table-fixed text-left text-sm;
     min-width: 0;
   }
 
@@ -112,7 +239,7 @@
   }
 
   .data-table-compact th {
-    @apply px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
+    @apply px-2 py-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   .data-table-compact tbody tr {
@@ -128,7 +255,11 @@
   }
 
   .data-table th {
-    @apply px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
+    @apply px-5 py-3 text-sm font-bold uppercase tracking-wider text-ink-muted overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  .table-actions-cell {
+    @apply text-center;
   }
 
   .data-table tbody tr {
@@ -139,16 +270,63 @@
     @apply px-5 py-3.5 align-middle text-ink-secondary overflow-hidden text-ellipsis;
   }
 
+  .data-table-wrap {
+    @apply min-w-0 table-auto;
+  }
+
+  .data-table-wrap th,
+  .data-table-wrap td {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  .theme-surface-panel {
+    @apply rounded-xl border border-primary-soft/70 bg-primary-soft/20 px-3 py-2 text-ink-secondary;
+  }
+
+  .dark .theme-surface-panel {
+    @apply border-primary-soft/40 bg-primary-soft/10 text-ink-secondary;
+  }
+
+  .theme-summary-grid {
+    @apply rounded-xl border border-primary-soft/60 bg-primary-soft/15 px-3 py-3;
+  }
+
+  .dark .theme-summary-grid {
+    @apply border-primary-soft/35 bg-primary-soft/10;
+  }
+
+  .attention-metric {
+    @apply rounded-lg border border-primary-soft/60 bg-surface px-4 py-3 dark:border-primary-soft/40 dark:bg-primary-soft/10;
+  }
+
+  .attention-metric--danger {
+    box-shadow: inset 4px 0 0 0 var(--color-danger);
+  }
+
+  .attention-metric--warning {
+    box-shadow: inset 4px 0 0 0 #f59e0b;
+  }
+
+  .attention-metric--info {
+    box-shadow: inset 4px 0 0 0 var(--color-accent);
+  }
+
   .filter-chip {
-    @apply rounded-lg border border-primary-soft bg-surface px-3.5 py-2 text-sm font-semibold text-ink-muted transition hover:border-accent/30 hover:text-ink;
+    @apply rounded-lg border border-primary-soft bg-surface px-3.5 py-2 text-sm font-semibold text-ink-muted transition hover:border-accent/30 hover:text-ink dark:border-white/20 dark:hover:border-white/35;
   }
 
   .filter-chip-active {
-    @apply border-accent bg-accent text-white shadow-sm;
+    @apply border-accent bg-accent text-white shadow-sm dark:border-accent dark:bg-accent dark:text-white;
+  }
+
+  .dark .chart-card-header {
+    @apply bg-surface border-primary-soft;
   }
 
   .measurement-names-table {
-    @apply w-full table-fixed text-left text-sm;
+    @apply w-full max-w-full table-fixed text-left text-sm;
   }
 
   .measurement-names-table thead tr {
@@ -168,7 +346,11 @@
   }
 
   .measurement-names-table .measurement-names-actions {
-    @apply w-[6.25rem] px-1 text-right;
+    @apply w-[5.5rem] px-1 text-center;
+  }
+
+  .measurement-names-table td:first-child {
+    @apply truncate;
   }
 
   .table-pagination-btn {
@@ -181,6 +363,108 @@
 
   .table-pagination-page-active {
     @apply border-accent bg-accent text-white shadow-sm hover:bg-accent hover:text-white;
+  }
+
+  /* ─── Login (2026-style) ─────────────────────────────────── */
+  .login-shell {
+    @apply bg-background;
+    isolation: isolate;
+  }
+
+  .login-shell__mesh {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgb(0 102 255 / 0.35), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 80%, rgb(0 184 217 / 0.28), transparent 50%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, rgb(99 102 241 / 0.2), transparent 45%),
+      linear-gradient(145deg, #071018 0%, #0a1929 42%, #132f4c 100%);
+  }
+
+  .dark .login-shell__mesh {
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgb(96 165 250 / 0.22), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 80%, rgb(34 211 238 / 0.15), transparent 50%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, rgb(129 140 248 / 0.12), transparent 45%),
+      linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e293b 100%);
+  }
+
+  .login-shell__hero {
+    @apply text-white;
+    background: linear-gradient(135deg, rgb(255 255 255 / 0.06) 0%, transparent 60%);
+  }
+
+  @media (min-width: 1024px) {
+    .login-shell__hero {
+      max-width: 52%;
+      border-inline-end: 1px solid rgb(255 255 255 / 0.08);
+    }
+  }
+
+  .login-shell__panel {
+    @apply bg-background/80 backdrop-blur-sm;
+  }
+
+  .dark .login-shell__panel {
+    @apply bg-background/90;
+  }
+
+  .login-shell__theme-btn {
+    @apply flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20;
+  }
+
+  .login-card {
+    @apply relative overflow-hidden rounded-[1.75rem] border border-primary-soft/80 bg-surface/95 shadow-[0_24px_80px_-24px_rgb(0_102_255/0.35)] backdrop-blur-xl;
+  }
+
+  .dark .login-card {
+    @apply border-primary-soft/50 bg-surface/90 shadow-[0_24px_80px_-24px_rgb(0_0_0/0.65)];
+  }
+
+  .login-card__glow {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgb(0 102 255 / 0.45),
+      rgb(0 184 217 / 0.25),
+      rgb(99 102 241 / 0.35)
+    );
+    opacity: 0.35;
+    z-index: 0;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    padding: 1px;
+    pointer-events: none;
+  }
+
+  .dark .login-card__glow {
+    opacity: 0.25;
+  }
+
+  .login-form .input-field {
+    @apply rounded-2xl border-2 py-3.5 ps-11 text-base shadow-sm transition duration-200;
+  }
+
+  .login-form .input-field:focus {
+    @apply shadow-md shadow-accent/10;
+  }
+
+  .login-submit {
+    @apply inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent to-[#0088cc] px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-accent/30 transition hover:shadow-xl hover:shadow-accent/35 disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  .login-submit:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  .login-secure-badge {
+    @apply rounded-xl border border-primary-soft/60 bg-primary-soft/20 px-3 py-2;
+  }
+
+  .dark .login-secure-badge {
+    @apply border-primary-soft/40 bg-primary-soft/10;
   }
 
   .table-pagination-select {

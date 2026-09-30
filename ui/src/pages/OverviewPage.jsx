@@ -35,17 +35,13 @@ import ChartTooltip from '../components/charts/ChartTooltip.jsx';
 import ModernBarGradients, { barGradientUrl } from '../components/charts/ModernBarGradients.jsx';
 import {
   CHART_ANIMATION,
-  CHART_GRID,
   CHART_MARGIN,
   AREA_EXPENSE,
   AREA_INCOME,
-  LEGEND_STYLE,
-  chartXAxisProps,
-  chartYAxisProps,
+  useChartTheme,
 } from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
-import TableRowActions from '../components/ui/TableRowActions.jsx';
 import Button from '../components/ui/Button.jsx';
 import OrderDetailModal from '../components/modals/OrderDetailModal.jsx';
 import { useCustomers } from '../context/CustomerContext.jsx';
@@ -83,6 +79,7 @@ function resolveCustomerId(order, customers) {
 
 export default function OverviewPage() {
   const { t } = useTranslation();
+  const { CHART_GRID, LEGEND_STYLE, chartXAxisProps, chartYAxisProps } = useChartTheme();
   const { customers, refreshCustomers } = useCustomers();
   const { orders, updateOrderStatus, recordOrderPayment, refreshOrders } = useOrders();
   const { sales } = useSales();
@@ -242,22 +239,11 @@ export default function OverviewPage() {
   });
 
   const tableColumns = [
-    { key: 'token', label: t('dashboard.orderHash'), render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
     { key: 'customer', label: t('common.customer'), render: (r) => <span className="font-medium text-ink">{r.customerName}</span> },
     { key: 'type', label: t('common.type'), render: (r) => r.orderType },
     { key: 'amount', label: t('common.amount'), render: (r) => formatCurrency(r.totalAmount) },
     { key: 'status', label: t('common.status'), render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'payment', label: t('common.payment'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
-    {
-      key: 'actions',
-      label: t('common.actions'),
-      className: 'w-28',
-      render: (r) => (
-        <TableRowActions
-          onView={() => setSelectedOrder(orders.find((o) => o.id === r.id) || r)}
-        />
-      ),
-    },
+    { key: 'payment', label: t('orders.payStatus'), render: (r) => <StatusBadge status={r.paymentStatus || 'Pending'} /> },
   ];
 
   return (
@@ -448,18 +434,18 @@ export default function OverviewPage() {
               <h3 className="font-bold text-ink">{t('dashboard.attention')}</h3>
             </div>
             <div className="space-y-3">
-              <div className="rounded-lg bg-red-50 px-4 py-3">
+              <div className="attention-metric attention-metric--danger">
                 <p className="text-xs font-semibold uppercase text-danger">{t('dashboard.overdue')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">{overdueOrders.length}</p>
               </div>
-              <div className="rounded-lg bg-amber-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-amber-700">{t('dashboard.pendingPay')}</p>
+              <div className="attention-metric attention-metric--warning">
+                <p className="text-xs font-semibold uppercase text-ink-muted">{t('dashboard.pendingPay')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">
                   {formatCurrency(dashboardData?.payments?.total ?? 0)}
                 </p>
               </div>
-              <div className="rounded-lg bg-blue-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-blue-700">{t('dashboard.lowStock')}</p>
+              <div className="attention-metric attention-metric--info">
+                <p className="text-xs font-semibold uppercase text-ink-muted">{t('dashboard.lowStock')}</p>
                 <p className="mt-1 text-2xl font-extrabold text-ink">
                   {dashboardData?.stockAlerts?.totalAlerts ?? 0}
                 </p>

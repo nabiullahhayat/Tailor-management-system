@@ -39,7 +39,5 @@ export function isOrderDeliveryTomorrow(order, fromDate = new Date()) {
 }
 
 export function formatOrderWarningLabel(order) {
-  const token = order?.tokenNumber || '';
-  const short = token.replace(/^ORD-/i, '#');
-  return short.startsWith('#') ? short : `#${short}`;
+  return order?.customerName?.trim() || order?.orderType || '—';
 }

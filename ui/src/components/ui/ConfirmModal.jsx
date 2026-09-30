@@ -37,14 +37,14 @@ export default function ConfirmModal({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border border-black/10 px-5 py-2.5 text-sm font-semibold text-ink-muted transition hover:bg-background"
+          className="rounded-xl border border-black/10 px-5 py-2.5 text-sm font-semibold text-ink-muted transition hover:bg-background dark:border-white/30 dark:hover:bg-primary-soft/35"
         >
           {cancelLabel || t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="rounded-xl bg-navy px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:bg-navy-light"
+          className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-accent/90 dark:shadow-lg dark:shadow-accent/25"
         >
           {confirmLabel || t('common.confirm')}
         </button>

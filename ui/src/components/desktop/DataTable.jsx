@@ -8,6 +8,7 @@ export default function DataTable({
   compact = false,
   pageSize = DEFAULT_PAGE_SIZE,
   paginate = true,
+  wrapCells = false,
 }) {
   const {
     page,
@@ -23,8 +24,8 @@ export default function DataTable({
 
   return (
     <div className="panel overflow-hidden">
-      <div className={compact ? 'overflow-x-hidden' : 'overflow-x-auto'}>
-        <table className={compact ? 'data-table-compact' : 'data-table'}>
+      <div className={`app-scroll ${compact ? 'overflow-x-hidden' : 'overflow-x-auto'}`}>
+        <table className={`${compact ? 'data-table-compact' : 'data-table'}${wrapCells ? ' data-table-wrap' : ''}`}>
           <thead>
             <tr>
               {columns.map((col) => (

@@ -16,8 +16,8 @@ export default function KpiChartCard({
   };
 
   return (
-    <div className={`flex h-full flex-col overflow-hidden rounded-2xl border border-primary-soft/70 bg-surface shadow-[0_1px_2px_rgba(10,25,41,0.04),0_16px_48px_-20px_rgba(10,25,41,0.14)] ${className}`.trim()}>
-      <div className="flex items-start justify-between gap-4 border-b border-primary-soft/50 bg-gradient-to-b from-white via-white to-surface px-5 py-4">
+    <div className={`flex h-full flex-col overflow-hidden rounded-2xl border border-primary-soft/70 bg-surface shadow-[0_1px_2px_rgba(10,25,41,0.04),0_16px_48px_-20px_rgba(10,25,41,0.14)] dark:border-primary-soft dark:shadow-none ${className}`.trim()}>
+      <div className="chart-card-header flex items-start justify-between gap-4 border-b border-primary-soft/50 bg-surface px-5 py-4 dark:bg-surface">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{title}</p>
           <p className="mt-1 truncate text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">{value}</p>

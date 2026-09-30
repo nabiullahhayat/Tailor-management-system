@@ -37,7 +37,7 @@ export default function Sidebar({ mobileOpen, onClose, collapsed, onToggleCollap
   const activeItem = getActiveNavItem(pathname);
 
   const content = (
-    <div className="flex h-full w-full min-w-0 flex-col bg-navy">
+    <div className="flex h-full w-full min-w-0 flex-col bg-[#0a1929]">
       <div className={`shrink-0 border-b border-white/10 ${collapsed ? 'px-3 py-4' : 'px-4 py-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <AppIconMark

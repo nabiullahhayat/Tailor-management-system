@@ -78,8 +78,7 @@ export default function CustomersPage() {
     return customers.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        c.tokenNumber.toLowerCase().includes(q),
+        c.phone.includes(q),
     );
   }, [customers, query]);
 
@@ -94,7 +93,6 @@ export default function CustomersPage() {
   const fmt = formatCurrency;
 
   const orderColumns = [
-    { key: 'token', label: t('customers.token'), render: (r) => <span className="font-semibold text-accent">{r.tokenNumber}</span> },
     { key: 'name', label: t('customers.customerName'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
     { key: 'phone', label: t('common.phone'), render: (r) => r.phone },
     {
@@ -120,9 +118,9 @@ export default function CustomersPage() {
     {
       key: 'actions',
       label: t('common.actions'),
+      className: 'table-actions-cell',
       render: (r) => (
         <TableRowActions
-          onView={() => setSelected(r)}
           onEdit={() => setEditTarget(r)}
           onDelete={() => setDeleteTarget(r)}
         />
@@ -166,9 +164,9 @@ export default function CustomersPage() {
     {
       key: 'actions',
       label: t('common.actions'),
+      className: 'table-actions-cell',
       render: (r) => (
         <TableRowActions
-          onView={() => setSelectedSale(r)}
           onEdit={() => setEditSaleTarget(r)}
           onDelete={() => setDeleteSaleTarget(r)}
         />
@@ -238,7 +236,7 @@ export default function CustomersPage() {
           <DataTable
             columns={saleColumns}
             rows={filteredSale}
-            onRowClick={undefined}
+            onRowClick={setSelectedSale}
             emptyMessage={t('customersExtra.emptySales')}
           />
         )}

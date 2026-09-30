@@ -24,10 +24,8 @@ import ModernBarGradients, { barGradientUrl } from '../components/charts/ModernB
 import {
   AREA_EXPENSE,
   CHART_ANIMATION,
-  CHART_GRID,
   CHART_MARGIN,
-  chartXAxisProps,
-  chartYAxisProps,
+  useChartTheme,
 } from '../components/charts/chartTheme.js';
 import DataTable from '../components/desktop/DataTable.jsx';
 import Input from '../components/ui/Input.jsx';
@@ -49,6 +47,7 @@ const emptyForm = { name: '', category: 'Other', amount: '', date: getTodaySolar
 
 export default function ExpensesPage() {
   const { t } = useTranslation();
+  const { CHART_GRID, chartXAxisProps, chartYAxisProps } = useChartTheme();
   const location = useLocation();
   const [expenses, setExpenses] = useState([]);
   const [filter, setFilter] = useState('All');
@@ -146,10 +145,9 @@ export default function ExpensesPage() {
     {
       key: 'actions',
       label: t('common.actions'),
-      className: 'w-28',
+      className: 'w-28 table-actions-cell',
       render: (r) => (
         <TableRowActions
-          onView={() => setViewTarget(r)}
           onEdit={() => openEdit(r)}
           onDelete={() => setDeleteTarget(r)}
         />
@@ -250,7 +248,7 @@ export default function ExpensesPage() {
           ))}
         </div>
 
-        <DataTable columns={columns} rows={filtered} emptyMessage={t('expensesExtra.empty')} />
+        <DataTable columns={columns} rows={filtered} onRowClick={setViewTarget} emptyMessage={t('expensesExtra.empty')} />
       </PageShell>
 
       <Modal open={!!viewTarget} onClose={() => setViewTarget(null)} title={viewTarget?.name} subtitle={viewTarget ? t(`filters.${viewTarget.category}`, { defaultValue: viewTarget.category }) : ''}>

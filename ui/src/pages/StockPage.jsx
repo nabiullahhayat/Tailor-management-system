@@ -166,11 +166,14 @@ export default function StockPage() {
 
   const stockActions = (category, item) => (
     <TableRowActions
-      onView={() => setViewTarget({ category, item })}
       onEdit={() => openEdit(category, item)}
       onDelete={() => setDeleteTarget({ category, item })}
     />
   );
+
+  const onStockRowClick = (row, category) => {
+    setViewTarget({ category, item: row });
+  };
 
   const fabricColumns = [
     { key: 'name', label: t('stock.fabric'), render: (r) => <span className="font-medium text-ink">{r.name}</span> },
@@ -189,7 +192,7 @@ export default function StockPage() {
       label: t('stock.warningAt'),
       render: (r) => getWarningQuantity(r, 'fabric'),
     },
-    { key: 'actions', label: t('common.actions'), className: 'w-28', render: (r) => stockActions('fabric', r) },
+    { key: 'actions', label: t('common.actions'), className: 'w-28 table-actions-cell', render: (r) => stockActions('fabric', r) },
   ];
 
   const machineryColumns = [
@@ -209,7 +212,7 @@ export default function StockPage() {
       label: t('stock.warningAt'),
       render: (r) => getWarningQuantity(r, 'machinery'),
     },
-    { key: 'actions', label: t('common.actions'), className: 'w-28', render: (r) => stockActions('machinery', r) },
+    { key: 'actions', label: t('common.actions'), className: 'w-28 table-actions-cell', render: (r) => stockActions('machinery', r) },
   ];
 
   const showFabric = filter !== 'machinery';
@@ -226,7 +229,7 @@ export default function StockPage() {
     >
         <div className="mb-4 flex flex-wrap gap-2">
           {[['all', t('stock.all')], ['fabric', t('stock.fabric')], ['machinery', t('stock.machinery')]].map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setFilter(key)} className={`rounded-xl px-4 py-2 text-sm font-bold ${filter === key ? 'bg-navy text-white' : 'bg-surface border border-black/10 text-ink-muted'}`}>
+            <button key={key} type="button" onClick={() => setFilter(key)} className={`rounded-xl px-4 py-2 text-sm font-bold ${filter === key ? 'bg-accent text-white shadow-sm' : 'filter-chip border bg-surface text-ink-muted'}`}>
               {label}
             </button>
           ))}
@@ -248,14 +251,14 @@ export default function StockPage() {
         {showFabric && (
           <section className="mb-8">
             <h3 className="mb-3 text-lg font-bold">{t('stock.fabricStock')}</h3>
-            <DataTable columns={fabricColumns} rows={fabrics} emptyMessage={t('stock.emptyFabric')} />
+            <DataTable columns={fabricColumns} rows={fabrics} onRowClick={(r) => onStockRowClick(r, 'fabric')} emptyMessage={t('stock.emptyFabric')} />
           </section>
         )}
 
         {showMachinery && (
           <section>
             <h3 className="mb-3 text-lg font-bold">{t('stock.machineryStock')}</h3>
-            <DataTable columns={machineryColumns} rows={machinery} emptyMessage={t('stock.emptyMachine')} />
+            <DataTable columns={machineryColumns} rows={machinery} onRowClick={(r) => onStockRowClick(r, 'machinery')} emptyMessage={t('stock.emptyMachine')} />
           </section>
         )}
 
